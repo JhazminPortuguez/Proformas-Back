@@ -2,101 +2,81 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Proformas\ActualizarProforma;
+use App\Actions\Proformas\CrearProforma;
+use App\Enums\EstadoProforma;
+use App\Http\Controllers\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProformaRequest;
+use App\Http\Requests\UpdateProformaRequest;
+use App\Http\Resources\ProformaResource;
 use App\Models\Proforma;
-use App\Models\ProformaItem;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ProformaController extends Controller
 {
-    /**
-     * Listar proformas
-     */
-    public function index()
-    {
-        return response()->json(
-            Proforma::with('cliente', 'items.producto')
-                ->orderBy('id', 'desc')
-                ->get()
-        );
-    }
+    use RespondePaginado;
 
-    /**
-     * Crear proforma con items
-     */
-    public function store(Request $request)
+    public function index(Request $request)
     {
-        $data = $request->validate([
-            'cliente_id' => 'required|exists:clientes,id',
-            'fecha_emision' => 'required|date',
-            'observaciones' => 'nullable|string',
+        $this->authorize('viewAny', Proforma::class);
 
-            'items' => 'required|array|min:1',
-            'items.*.producto_id' => 'required|exists:productos,id',
-            'items.*.cantidad' => 'required|integer|min:1',
-            'items.*.precio_unitario' => 'required|numeric|min:0',
+        $filtros = $request->validate([
+            'estado' => ['nullable', Rule::enum(EstadoProforma::class)],
+            'cliente_id' => ['nullable', 'integer'],
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $proforma = DB::transaction(function () use ($data) {
+        $proformas = Proforma::query()
+            ->with('cliente', 'items.producto')
+            ->when($filtros['estado'] ?? null, fn ($query, $estado) => $query->where('estado', $estado))
+            ->when($filtros['cliente_id'] ?? null, fn ($query, $clienteId) => $query->where('cliente_id', $clienteId))
+            ->when($filtros['desde'] ?? null, fn ($query, $desde) => $query->whereDate('fecha_emision', '>=', $desde))
+            ->when($filtros['hasta'] ?? null, fn ($query, $hasta) => $query->whereDate('fecha_emision', '<=', $hasta))
+            ->orderByDesc('id')
+            ->paginate($filtros['per_page'] ?? 15)
+            ->withQueryString();
 
-            // Crear proforma
-            $proforma = Proforma::create([
-                'numero' => 'PR-' . now()->format('YmdHis'),
-                'cliente_id' => $data['cliente_id'],
-                'fecha_emision' => $data['fecha_emision'],
-                'estado' => 'BORRADOR',
-                'subtotal' => 0,
-                'descuento' => 0,
-                'impuesto' => 0,
-                'total' => 0,
-                'observaciones' => $data['observaciones'] ?? null,
-            ]);
-
-            $subtotal = 0;
-
-            // Crear items
-            foreach ($data['items'] as $item) {
-                $totalLinea = $item['cantidad'] * $item['precio_unitario'];
-                $subtotal += $totalLinea;
-
-                ProformaItem::create([
-                    'proforma_id' => $proforma->id,
-                    'producto_id' => $item['producto_id'],
-                    'cantidad' => $item['cantidad'],
-                    'precio_unitario' => $item['precio_unitario'],
-                    'total_linea' => $totalLinea,
-                ]);
-            }
-
-            // Actualizar totales
-            $proforma->update([
-                'subtotal' => $subtotal,
-                'total' => $subtotal,
-            ]);
-
-            return $proforma->load('cliente', 'items.producto');
-        });
-
-        return response()->json($proforma, 201);
-    }
-
-    /**
-     * Mostrar una proforma
-     */
-    public function show(Proforma $proforma)
-    {
-        return response()->json(
-            $proforma->load('cliente', 'items.producto')
+        return $this->respuestaPaginada(
+            ProformaResource::collection($proformas->items()),
+            $proformas
         );
     }
 
-    /**
-     * Eliminar proforma
-     */
+    public function store(StoreProformaRequest $request, CrearProforma $crear)
+    {
+        $this->authorize('create', Proforma::class);
+
+        $proforma = $crear->ejecutar($request->validated(), $request->user());
+
+        return (new ProformaResource($proforma))->response()->setStatusCode(201);
+    }
+
+    public function show(Proforma $proforma)
+    {
+        $this->authorize('view', $proforma);
+
+        return new ProformaResource($proforma->load('cliente', 'items.producto'));
+    }
+
+    public function update(UpdateProformaRequest $request, Proforma $proforma, ActualizarProforma $actualizar)
+    {
+        $this->authorize('update', $proforma);
+
+        $proforma = $actualizar->ejecutar($proforma, $request->validated(), $request->user());
+
+        return new ProformaResource($proforma);
+    }
+
     public function destroy(Proforma $proforma)
     {
+        $this->authorize('delete', $proforma);
+
         $proforma->delete();
+
         return response()->noContent();
     }
 }

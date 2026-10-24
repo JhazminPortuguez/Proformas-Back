@@ -2,15 +2,18 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Rol;
+use App\Models\Concerns\PerteneceAEmpresa;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, Notifiable, PerteneceAEmpresa;
 
     /**
      * The attributes that are mass assignable.
@@ -22,6 +25,9 @@ class User extends Authenticatable
         'email',
         'password',
         'rol',
+        'activo',
+        'cliente_id',
+        'empresa_id',
     ];
 
     /**
@@ -44,6 +50,13 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'rol' => Rol::class,
+            'activo' => 'boolean',
         ];
+    }
+
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class, 'cliente_id');
     }
 }

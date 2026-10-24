@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Empresa por defecto
+    |--------------------------------------------------------------------------
+    |
+    | Mientras el sistema opera con una sola empresa, este valor identifica la
+    | empresa usada en procesos públicos (registro, seeders, consola). El
+    | aislamiento por empresa se resuelve luego con users.empresa_id.
+    |
+    */
+
+    'empresa_default_id' => (int) env('EMPRESA_DEFAULT_ID', 1),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |
@@ -65,7 +78,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'UTC'),
 
     /*
     |--------------------------------------------------------------------------

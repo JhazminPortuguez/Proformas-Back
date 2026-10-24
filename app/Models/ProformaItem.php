@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProformaItem extends Model
 {
+    use HasFactory;
+
     protected $table = 'proforma_items';
 
     protected $fillable = [
@@ -17,6 +20,15 @@ class ProformaItem extends Model
         'precio_unitario',
         'total_linea',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'cantidad' => 'integer',
+            'precio_unitario' => 'decimal:2',
+            'total_linea' => 'decimal:2',
+        ];
+    }
 
     public function proforma(): BelongsTo
     {
