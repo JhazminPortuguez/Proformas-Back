@@ -97,6 +97,11 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            // En Windows cada conexión nueva a PostgreSQL cuesta ~130 ms; reutilizarla
+            // acelera mucho el entorno local con `php artisan serve`.
+            'options' => extension_loaded('pdo_pgsql') ? [
+                PDO::ATTR_PERSISTENT => env('DB_PERSISTENT', false),
+            ] : [],
         ],
 
         'sqlsrv' => [
