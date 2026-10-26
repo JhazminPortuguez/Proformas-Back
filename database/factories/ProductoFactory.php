@@ -22,6 +22,9 @@ class ProductoFactory extends Factory
             'descripcion' => fake()->sentence(),
             'precio_unitario' => fake()->randomFloat(2, 10, 1000),
             'unidad_medida' => fake()->randomElement(['unidad', 'kg', 'hora', 'caja']),
+            'stock_actual' => fake()->randomFloat(3, 0, 100),
+            'stock_minimo' => fake()->randomFloat(3, 0, 10),
+            'costo_promedio' => fake()->randomFloat(2, 5, 800),
             'activo' => true,
         ];
     }

@@ -25,4 +25,16 @@ class ClienteTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.proformas_count', 1);
     }
+
+    public function test_busqueda_ignora_acentos_y_mayusculas(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        Cliente::factory()->create(['nombre_razon' => 'Taller Ñandú']);
+
+        $this->actingAs($admin)
+            ->getJson('/api/v1/clientes?search=NANDU')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.nombre_razon', 'Taller Ñandú');
+    }
 }

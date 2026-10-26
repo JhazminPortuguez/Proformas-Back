@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Users\EliminarUsuario;
 use App\Enums\Rol;
 use App\Http\Controllers\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
@@ -9,6 +10,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Support\Busqueda;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -30,11 +32,11 @@ class UserController extends Controller
 
         $usuarios = User::query()
             ->when($request->filled('search'), function ($query) use ($request) {
-                $termino = '%'.mb_strtolower((string) $request->input('search')).'%';
+                $termino = Busqueda::patron((string) $request->input('search'));
 
                 $query->where(function ($query) use ($termino) {
-                    $query->whereRaw('lower(name) like ?', [$termino])
-                        ->orWhereRaw('lower(email) like ?', [$termino]);
+                    $query->whereRaw(Busqueda::like('name'), [$termino])
+                        ->orWhereRaw(Busqueda::like('email'), [$termino]);
                 });
             })
             ->when($filtros['rol'] ?? null, fn ($query, $rol) => $query->where('rol', $rol))
@@ -123,17 +125,11 @@ class UserController extends Controller
         return new UserResource($user->fresh()->load('cliente'));
     }
 
-    public function destroy(User $user)
+    public function destroy(User $user, EliminarUsuario $eliminar)
     {
         $this->authorize('delete', $user);
 
-        if ($user->rol === Rol::Admin && User::query()->where('rol', Rol::Admin)->count() <= 1) {
-            return response()->json([
-                'message' => 'No se puede eliminar al último administrador.',
-            ], 422);
-        }
-
-        $user->delete();
+        $eliminar->ejecutar($user);
 
         return response()->noContent();
     }

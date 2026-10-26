@@ -22,6 +22,9 @@ class StoreProductoRequest extends FormRequest
             'descripcion' => ['nullable', 'string', 'max:2000'],
             'precio_unitario' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'unidad_medida' => ['nullable', 'string', 'max:30'],
+            'stock_actual' => ['sometimes', 'numeric', 'decimal:0,3', 'min:0', 'max:9999999999.999'],
+            'stock_minimo' => ['sometimes', 'numeric', 'decimal:0,3', 'min:0', 'max:9999999999.999'],
+            'costo_promedio' => ['sometimes', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'activo' => ['sometimes', 'boolean'],
         ];
     }

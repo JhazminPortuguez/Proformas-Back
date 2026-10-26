@@ -22,6 +22,8 @@ class Empresa extends Model
         'telefono',
         'email',
         'direccion',
+        'logo_path',
+        'condiciones',
     ];
 
     public function users(): HasMany
@@ -47,5 +49,30 @@ class Empresa extends Model
     public function servicios(): HasMany
     {
         return $this->hasMany(Servicio::class, 'empresa_id');
+    }
+
+    public function solicitudes(): HasMany
+    {
+        return $this->hasMany(SolicitudCotizacion::class, 'empresa_id');
+    }
+
+    public function ordenesServicio(): HasMany
+    {
+        return $this->hasMany(OrdenServicio::class, 'empresa_id');
+    }
+
+    public function movimientosInventario(): HasMany
+    {
+        return $this->hasMany(MovimientoInventario::class, 'empresa_id');
+    }
+
+    public function cuentasPorCobrar(): HasMany
+    {
+        return $this->hasMany(CuentaPorCobrar::class, 'empresa_id');
+    }
+
+    public function pagosCuenta(): HasMany
+    {
+        return $this->hasMany(PagoCuenta::class, 'empresa_id');
     }
 }

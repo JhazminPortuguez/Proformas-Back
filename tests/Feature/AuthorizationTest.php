@@ -34,10 +34,11 @@ class AuthorizationTest extends TestCase
         $this->actingAs($operario)->putJson("/api/v1/clientes/{$cliente->id}", ['nombre_razon' => 'Editado'])
             ->assertOk();
 
+        // Los materiales son catálogo administrado: el operario usa línea libre.
         $this->actingAs($operario)->postJson('/api/v1/productos', [
             'nombre' => 'X',
             'precio_unitario' => 10,
-        ])->assertCreated();
+        ])->assertForbidden();
 
         $this->actingAs($operario)->deleteJson("/api/v1/clientes/{$cliente->id}")
             ->assertForbidden();
@@ -63,7 +64,7 @@ class AuthorizationTest extends TestCase
     {
         $cliente = User::factory()->create(['rol' => Rol::Cliente]);
 
-        foreach (['clientes', 'productos', 'proformas', 'servicios', 'users', 'dashboard'] as $ruta) {
+        foreach (['clientes', 'productos', 'proformas', 'servicios', 'solicitudes', 'users', 'dashboard'] as $ruta) {
             $this->actingAs($cliente)->getJson("/api/v1/{$ruta}")->assertForbidden();
         }
 

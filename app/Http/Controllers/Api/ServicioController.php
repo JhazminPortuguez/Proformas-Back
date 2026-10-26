@@ -8,6 +8,7 @@ use App\Http\Requests\StoreServicioRequest;
 use App\Http\Requests\UpdateServicioRequest;
 use App\Http\Resources\ServicioResource;
 use App\Models\Servicio;
+use App\Support\Busqueda;
 use Illuminate\Http\Request;
 
 class ServicioController extends Controller
@@ -22,12 +23,12 @@ class ServicioController extends Controller
 
         $servicios = Servicio::query()
             ->when($request->filled('search'), function ($query) use ($request) {
-                $termino = '%'.mb_strtolower((string) $request->input('search')).'%';
+                $termino = Busqueda::patron((string) $request->input('search'));
 
                 $query->where(function ($query) use ($termino) {
-                    $query->whereRaw('lower(nombre) like ?', [$termino])
-                        ->orWhereRaw("lower(coalesce(descripcion, '')) like ?", [$termino])
-                        ->orWhereRaw("lower(coalesce(categoria, '')) like ?", [$termino]);
+                    $query->whereRaw(Busqueda::like('nombre'), [$termino])
+                        ->orWhereRaw(Busqueda::like("coalesce(descripcion, '')"), [$termino])
+                        ->orWhereRaw(Busqueda::like("coalesce(categoria, '')"), [$termino]);
                 });
             })
             ->when($request->has('activo'), fn ($query) => $query->where('activo', $request->boolean('activo')))
@@ -71,6 +72,12 @@ class ServicioController extends Controller
     public function destroy(Servicio $servicio)
     {
         $this->authorize('delete', $servicio);
+
+        if ($servicio->items()->exists()) {
+            return response()->json([
+                'message' => 'No se puede eliminar el servicio porque está incluido en proformas.',
+            ], 409);
+        }
 
         $servicio->delete();
 

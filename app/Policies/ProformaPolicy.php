@@ -31,4 +31,24 @@ class ProformaPolicy
     {
         return $user->rol?->puedeEliminar() ?? false;
     }
+
+    public function enviar(User $user, Proforma $proforma): bool
+    {
+        return $user->rol?->puedeGestionarDatos() ?? false;
+    }
+
+    public function aceptar(User $user, Proforma $proforma): bool
+    {
+        return $user->rol?->puedeGestionarDatos() ?? false;
+    }
+
+    public function rechazar(User $user, Proforma $proforma): bool
+    {
+        return $user->rol?->puedeGestionarDatos() ?? false;
+    }
+
+    public function descargarPdf(User $user, Proforma $proforma): bool
+    {
+        return $user->rol?->esInterno() ?? false;
+    }
 }

@@ -244,34 +244,95 @@ Disponible para `admin` y `operario`.
     "RECHAZADA": 1
   },
   "monto_proformas_mes": 12500.75,
-  "actividad_reciente": [
-    {
-      "tipo": "proforma",
-      "id": 30,
-      "descripcion": "PR-2026-000030",
-      "estado": "ENVIADA",
-      "monto": 1500.0,
-      "fecha": "2026-10-23T18:30:00.000000Z"
+  "monto_cotizado_mes": 12500.75,
+  "monto_aceptado_mes": 9800.00,
+  "ordenes_pendientes": 2,
+  "saldo_por_cobrar": 265.00,
+  "ordenes": {
+    "total": 3,
+    "activas": 2,
+    "pendientes": 1,
+    "asignadas": 1,
+    "en_proceso": 0,
+    "finalizadas": 1,
+    "canceladas": 1,
+    "por_estado": {
+      "PENDIENTE": 1,
+      "ASIGNADA": 1,
+      "EN_PROCESO": 0,
+      "FINALIZADA": 1,
+      "CANCELADA": 1
     },
+    "finalizadas_mes": 1,
+    "cerradas_mes": 1
+  },
+  "inventario": {
+    "productos": 6,
+    "stock_bajo": 1,
+    "valor_inventario": 8470.00,
+    "movimientos_mes": 7,
+    "productos_bajo_stock": [
+      {
+        "id": 10,
+        "nombre": "Ventilador de reemplazo",
+        "stock_actual": 7,
+        "stock_minimo": 10,
+        "unidad_medida": "unidad"
+      }
+    ]
+  },
+  "cobros": {
+    "cuentas": 1,
+    "pendientes": 1,
+    "vencidas": 0,
+    "saldo": 265.00,
+    "monto_vencido": 0,
+    "cobrado_mes": 265.00,
+    "monto_total": 530.00,
+    "aging": {
+      "al_dia": 265.00,
+      "d1_30": 0,
+      "d31_60": 0,
+      "d61_90": 0,
+      "d90_plus": 0
+    }
+  },
+  "ingresos_mes": 265.00,
+  "servicios_mas_solicitados": [
     {
-      "tipo": "cliente",
-      "id": 12,
-      "descripcion": "ACME SRL",
-      "estado": "prospecto",
-      "monto": null,
-      "fecha": "2026-10-23T17:10:00.000000Z"
+      "servicio_id": 1,
+      "nombre": "Instalación básica",
+      "cantidad": 3,
+      "total": 1050.00
     }
   ],
-  "ordenes_pendientes": null,
-  "saldo_por_cobrar": null
+  "actividad_reciente": [
+    {
+      "tipo": "pago",
+      "id": 10,
+      "descripcion": "Pago CXC-2026-000001",
+      "estado": null,
+      "monto": 265.00,
+      "cuenta_id": 1,
+      "fecha": "2026-10-23T18:30:00.000000Z",
+      "usuario": "Pepito Tilcayo"
+    }
+  ]
 }
 ```
 
 - `clientes`, `servicios`, `proformas`: totales de la empresa actual.
 - `proformas_por_estado`: siempre incluye los cuatro estados, con `0` cuando no hay registros.
-- `monto_proformas_mes`: suma de `total` de proformas con `fecha_emision` dentro del mes actual.
-- `actividad_reciente`: hasta 5 elementos combinando las últimas proformas y clientes por `created_at`.
-- `ordenes_pendientes` y `saldo_por_cobrar` quedan en `null` hasta las fases de órdenes y cobranzas.
+- `monto_proformas_mes`: alias legacy de `monto_cotizado_mes` (`BORRADOR + ENVIADA` del mes).
+- `monto_aceptado_mes`: proformas `ACEPTADA` del mes por `fecha_emision`.
+- `ordenes_pendientes`: alias legacy de `ordenes.activas` (`PENDIENTE + ASIGNADA + EN_PROCESO`).
+- `ordenes.por_estado`: siempre incluye los cinco estados; `finalizadas_mes` usa `fecha_fin` y `cerradas_mes` usa `cerrada_at`.
+- `inventario.stock_bajo`: productos con `stock_actual <= stock_minimo`; `productos_bajo_stock` devuelve hasta 5 ordenados por déficit.
+- `saldo_por_cobrar`: alias legacy de `cobros.saldo` (suma de saldos mayores a cero).
+- `cobros.aging`: franjas por días vencidos; `al_dia` incluye las cuentas no vencidas con saldo.
+- `cobros.cobrado_mes` e `ingresos_mes`: pagos no anulados con `fecha_pago` dentro del mes actual.
+- `servicios_mas_solicitados`: hasta 5 servicios por cantidad, excluyendo órdenes canceladas.
+- `actividad_reciente`: hasta 10 eventos combinando proformas, órdenes, pagos, movimientos y clientes, ordenados por fecha descendente.
 
 El frontend usa `GET /sanctum/csrf-cookie` y envía `X-XSRF-TOKEN` + cookies (`credentials: include`).
 

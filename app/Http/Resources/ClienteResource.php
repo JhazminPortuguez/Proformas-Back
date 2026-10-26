@@ -22,6 +22,7 @@ class ClienteResource extends JsonResource
             'estado' => $this->estado?->value,
             'empresa_id' => $this->empresa_id,
             'proformas_count' => $this->whenCounted('proformas'),
+            'ordenes_count' => $this->whenCounted('ordenes'),
             'proformas' => $this->whenLoaded(
                 'proformas',
                 fn () => ProformaResource::collection($this->proformas)

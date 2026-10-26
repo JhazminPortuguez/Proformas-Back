@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Actions\Proformas;
 
-use App\Enums\EstadoProforma;
 use App\Models\Proforma;
 use App\Models\User;
 use App\Support\Dinero;
@@ -19,11 +18,13 @@ final class ActualizarProforma
         'fecha_validez',
         'items',
         'descuento',
-        'impuesto',
+        'impuesto_tasa',
+        'moneda',
     ];
 
     public function __construct(
         private readonly ConstruirLineasProforma $lineas,
+        private readonly CalcularTotalesProforma $totales,
     ) {}
 
     /**
@@ -37,16 +38,6 @@ final class ActualizarProforma
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $estadoSolicitado = array_key_exists('estado', $datos)
-                ? EstadoProforma::from((string) $datos['estado'])
-                : $actual->estado;
-
-            if (! $actual->estado->puedeTransicionarA($estadoSolicitado)) {
-                throw ValidationException::withMessages([
-                    'estado' => "No se puede pasar de {$actual->estado->etiqueta()} a {$estadoSolicitado->etiqueta()}.",
-                ]);
-            }
-
             $editaContenido = collect(self::CAMPOS_CONTENIDO)
                 ->contains(fn (string $campo) => array_key_exists($campo, $datos));
 
@@ -58,9 +49,11 @@ final class ActualizarProforma
 
             $cambios = [];
 
-            foreach (['cliente_id', 'fecha_emision', 'fecha_validez', 'observaciones'] as $campo) {
+            foreach (['cliente_id', 'fecha_emision', 'fecha_validez', 'observaciones', 'moneda'] as $campo) {
                 if (array_key_exists($campo, $datos)) {
-                    $cambios[$campo] = $datos[$campo];
+                    $cambios[$campo] = $campo === 'moneda'
+                        ? strtoupper((string) $datos[$campo])
+                        : $datos[$campo];
                 }
             }
 
@@ -81,34 +74,26 @@ final class ActualizarProforma
                 $actual->items()->createMany($calculado['lineas']);
                 $subtotal = $calculado['subtotal'];
             } else {
-                $subtotal = Dinero::redondear((float) $actual->items()->sum('total_linea'));
+                $subtotal = Dinero::redondear((string) $actual->items()->sum('total_linea'));
             }
 
-            $descuento = Dinero::redondear(
-                array_key_exists('descuento', $datos) ? $datos['descuento'] : $actual->descuento
-            );
-
-            if ($descuento > $subtotal) {
-                throw ValidationException::withMessages([
-                    'descuento' => 'El descuento no puede superar el subtotal.',
-                ]);
-            }
-
-            $impuesto = Dinero::redondear(
-                array_key_exists('impuesto', $datos) ? $datos['impuesto'] : $actual->impuesto
+            $totales = $this->totales->ejecutar(
+                $subtotal,
+                array_key_exists('descuento', $datos) ? $datos['descuento'] : $actual->descuento,
+                array_key_exists('impuesto_tasa', $datos) ? $datos['impuesto_tasa'] : $actual->impuesto_tasa,
             );
 
             $actual->update([
                 ...$cambios,
-                'subtotal' => $subtotal,
-                'descuento' => $descuento,
-                'impuesto' => $impuesto,
-                'total' => Dinero::redondear($subtotal - $descuento + $impuesto),
-                'estado' => $estadoSolicitado,
+                'subtotal' => $totales['subtotal'],
+                'descuento' => $totales['descuento'],
+                'impuesto_tasa' => $totales['impuesto_tasa'],
+                'impuesto' => $totales['impuesto'],
+                'total' => $totales['total'],
                 'updated_by' => $usuario->id,
             ]);
 
-            return $actual->load('cliente', 'items.producto');
+            return $actual->load('cliente', 'items.producto', 'items.servicio');
         });
     }
 }

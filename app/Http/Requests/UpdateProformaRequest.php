@@ -2,16 +2,27 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\EstadoProforma;
+use App\Http\Requests\Concerns\ValidaItemsProforma;
 use App\Support\EmpresaActual;
+use App\Support\Monedas;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateProformaRequest extends FormRequest
 {
+    use ValidaItemsProforma;
+
     public function authorize(): bool
     {
         return $this->user()?->can('update', $this->route('proforma')) ?? false;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('moneda'))) {
+            $this->merge(['moneda' => strtoupper($this->input('moneda'))]);
+        }
     }
 
     /**
@@ -34,20 +45,25 @@ class UpdateProformaRequest extends FormRequest
             ],
             'fecha_emision' => ['sometimes', 'required', 'date'],
             'fecha_validez' => $fechaValidez,
-            'estado' => ['sometimes', 'required', Rule::enum(EstadoProforma::class)],
+            // El estado se cambia exclusivamente con /enviar, /aceptar y /rechazar.
+            'estado' => ['prohibited'],
+            'moneda' => ['sometimes', 'required', 'string', Rule::in(Monedas::SOPORTADAS)],
+            'impuesto_tasa' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
             'descuento' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
-            'impuesto' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
 
-            'items' => ['sometimes', 'array', 'min:1', 'max:100'],
-            'items.*.producto_id' => [
-                'required_with:items',
-                'integer',
-                'distinct',
-                Rule::exists('productos', 'id')->where('empresa_id', EmpresaActual::id()),
-            ],
-            'items.*.cantidad' => ['required_with:items', 'integer', 'min:1', 'max:100000'],
-            'items.*.descripcion' => ['nullable', 'string', 'max:255'],
+            ...$this->reglasItems(false),
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $items = $this->input('items');
+
+            if (is_array($items)) {
+                $this->validarItemsProforma($validator, $items);
+            }
+        });
     }
 }

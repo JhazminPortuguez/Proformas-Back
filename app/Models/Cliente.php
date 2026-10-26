@@ -40,4 +40,24 @@ class Cliente extends Model
     {
         return $this->hasMany(User::class, 'cliente_id');
     }
+
+    public function solicitudes(): HasMany
+    {
+        return $this->hasMany(SolicitudCotizacion::class, 'cliente_id');
+    }
+
+    public function ordenes(): HasMany
+    {
+        return $this->hasMany(OrdenServicio::class, 'cliente_id');
+    }
+
+    public function ordenesServicio(): HasMany
+    {
+        return $this->hasMany(OrdenServicio::class, 'cliente_id');
+    }
+
+    public function cuentasPorCobrar(): HasMany
+    {
+        return $this->hasMany(CuentaPorCobrar::class, 'cliente_id');
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\Concerns\PerteneceAEmpresa;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -58,5 +59,25 @@ class User extends Authenticatable
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class, 'cliente_id');
+    }
+
+    public function ordenesAsignadas(): HasMany
+    {
+        return $this->hasMany(OrdenServicio::class, 'operario_id');
+    }
+
+    public function movimientosInventario(): HasMany
+    {
+        return $this->hasMany(MovimientoInventario::class, 'created_by');
+    }
+
+    public function cuentasPorCobrarCreadas(): HasMany
+    {
+        return $this->hasMany(CuentaPorCobrar::class, 'created_by');
+    }
+
+    public function pagosCuentaRegistrados(): HasMany
+    {
+        return $this->hasMany(PagoCuenta::class, 'created_by');
     }
 }
