@@ -32,6 +32,7 @@ Credenciales de ejemplo (solo local):
 |---|---|---|---|
 | Pepito Tilcayo | pepitotilcayo@example.com | `password` | admin |
 | Operario | operario@example.com | `password` | operario |
+| Cliente Demo | cliente.demo@example.com | `password` | cliente |
 
 El password del admin se puede cambiar con `ADMIN_PASSWORD` en `.env`.
 Los usuarios con rol `vendedor` de instalaciones anteriores se migran automáticamente a `operario`.
