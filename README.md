@@ -4,7 +4,7 @@ API REST en Laravel 12 + Sanctum (autenticación por sesión) + PostgreSQL 17.
 
 ## Requisitos
 
-- PHP 8.2+ con `pdo_pgsql` (recomendado también `intl`).
+- PHP 8.2+ con `pdo_pgsql` y `bcmath` (recomendado también `intl`).
 - Composer 2.
 - Docker Desktop (para PostgreSQL).
 
