@@ -27,7 +27,12 @@ class AuthController extends Controller
 
         $credentials['email'] = Str::lower($credentials['email']);
 
-        $usuario = User::query()->where('email', $credentials['email'])->first();
+        // El email es único en toda la tabla: el login no depende de la empresa por defecto;
+        // la sesión toma la empresa del usuario.
+        $usuario = User::query()
+            ->withoutGlobalScope('empresa')
+            ->where('email', $credentials['email'])
+            ->first();
 
         if (! $usuario || ! Hash::check($credentials['password'], $usuario->password)) {
             return response()->json(['message' => 'Credenciales inválidas.'], 401);

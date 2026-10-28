@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Rol;
+use App\Models\Empresa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -34,6 +35,26 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/login', ['email' => 'a@x.com', 'password' => 'otra'])
             ->assertStatus(401)
             ->assertJsonPath('message', 'Credenciales inválidas.');
+    }
+
+    public function test_login_de_usuario_de_otra_empresa_toma_su_empresa(): void
+    {
+        $empresa = Empresa::factory()->create();
+        User::factory()->create([
+            'empresa_id' => $empresa->id,
+            'email' => 'otra@x.com',
+            'password' => 'secret123',
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'otra@x.com',
+            'password' => 'secret123',
+        ])
+            ->assertOk()
+            ->assertJsonPath('email', 'otra@x.com')
+            ->assertSessionHas('empresa_id', $empresa->id);
+
+        $this->assertAuthenticated();
     }
 
     public function test_login_de_usuario_inactivo_devuelve_403(): void
