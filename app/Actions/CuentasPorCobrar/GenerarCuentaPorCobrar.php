@@ -7,8 +7,8 @@ namespace App\Actions\CuentasPorCobrar;
 use App\Enums\EstadoCobro;
 use App\Enums\EstadoOrden;
 use App\Models\CuentaPorCobrar;
-use App\Models\OrdenItem;
 use App\Models\OrdenServicio;
+use App\Models\Proforma;
 use App\Models\User;
 use App\Support\Dinero;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +42,11 @@ final class GenerarCuentaPorCobrar
                 ]);
             }
 
-            $montoTotal = $this->sumarLineas($actual);
+            // Se cobra lo que el cliente aceptó: el total de la proforma
+            // (subtotal - descuento + impuesto) y en su moneda. La proforma
+            // aceptada y los ítems de la orden ya no se pueden modificar.
+            $proforma = Proforma::query()->findOrFail($actual->proforma_id);
+            $montoTotal = Dinero::redondear($proforma->total);
             $fechaEmision = $actual->cerrada_at->toDateString();
             $fechaVencimiento = $actual->cerrada_at->copy()->addDays(30)->toDateString();
 
@@ -53,7 +57,7 @@ final class GenerarCuentaPorCobrar
                 'numero' => $this->numeros->ejecutar($actual->cerrada_at),
                 'fecha_emision' => $fechaEmision,
                 'fecha_vencimiento' => $fechaVencimiento,
-                'moneda' => 'BOB',
+                'moneda' => $proforma->moneda,
                 'monto_total' => $montoTotal,
                 'saldo' => $montoTotal,
                 'estado_cobro' => Dinero::esCero($montoTotal)
@@ -65,16 +69,6 @@ final class GenerarCuentaPorCobrar
 
             return $this->cargar($cuenta);
         });
-    }
-
-    private function sumarLineas(OrdenServicio $orden): string
-    {
-        $lineas = OrdenItem::query()
-            ->where('orden_id', $orden->getKey())
-            ->pluck('total_linea')
-            ->all();
-
-        return Dinero::sumar(...$lineas);
     }
 
     private function cargar(CuentaPorCobrar $cuenta): CuentaPorCobrar
