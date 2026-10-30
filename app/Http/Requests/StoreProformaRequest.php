@@ -39,7 +39,8 @@ class StoreProformaRequest extends FormRequest
             ],
             'fecha_emision' => ['required', 'date'],
             'fecha_validez' => ['nullable', 'date', 'after_or_equal:fecha_emision'],
-            'moneda' => ['nullable', 'string', Rule::in(Monedas::SOPORTADAS)],
+            // El sistema trabaja solo en bolivianos.
+            'moneda' => ['nullable', 'string', Rule::in([Monedas::POR_DEFECTO])],
             'impuesto_tasa' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
             'descuento' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'observaciones' => ['nullable', 'string', 'max:2000'],

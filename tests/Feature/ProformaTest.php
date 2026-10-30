@@ -110,6 +110,46 @@ class ProformaTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('impuesto_tasa');
     }
 
+    public function test_solo_se_crean_proformas_en_bolivianos(): void
+    {
+        $usuario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create();
+        $producto = Producto::factory()->create(['precio_unitario' => 10]);
+
+        foreach (['USD', 'eur'] as $moneda) {
+            $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+                'cliente_id' => $cliente->id,
+                'fecha_emision' => '2026-10-23',
+                'moneda' => $moneda,
+                'items' => [['producto_id' => $producto->id, 'cantidad' => 1]],
+            ])->assertStatus(422)->assertJsonValidationErrors('moneda');
+        }
+
+        $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-10-23',
+            'items' => [['producto_id' => $producto->id, 'cantidad' => 1]],
+        ])->assertCreated()->assertJsonPath('moneda', 'BOB');
+
+        $this->assertDatabaseMissing('proformas', ['moneda' => 'USD']);
+        $this->assertDatabaseMissing('proformas', ['moneda' => 'EUR']);
+    }
+
+    public function test_no_se_cambia_la_moneda_de_una_proforma_a_otra_que_no_sea_bob(): void
+    {
+        [$usuario, $proforma] = $this->crearProforma(100, 2);
+
+        $this->actingAs($usuario)->putJson("/api/v1/proformas/{$proforma['id']}", [
+            'moneda' => 'USD',
+        ])->assertStatus(422)->assertJsonValidationErrors('moneda');
+
+        $this->actingAs($usuario)->putJson("/api/v1/proformas/{$proforma['id']}", [
+            'moneda' => 'bob',
+        ])->assertOk()->assertJsonPath('moneda', 'BOB');
+
+        $this->assertDatabaseHas('proformas', ['id' => $proforma['id'], 'moneda' => 'BOB']);
+    }
+
     public function test_fecha_validez_no_puede_ser_anterior_a_la_emision(): void
     {
         $usuario = User::factory()->create(['rol' => Rol::Operario]);
