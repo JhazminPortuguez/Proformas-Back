@@ -16,8 +16,7 @@ use Illuminate\Support\Collection;
  * Reporte A: órdenes de servicio del periodo por estado, por operario y
  * cumplimiento de la fecha programada.
  *
- * Una orden pertenece al periodo por su fecha programada; las que no tienen
- * fecha programada, por el día en que se crearon.
+ * Las órdenes del periodo se eligen con {@see OrdenServicio::scopeDelPeriodo()}.
  */
 final class ReporteOrdenes
 {
@@ -143,13 +142,7 @@ final class ReporteOrdenes
     {
         return OrdenServicio::query()
             ->with(['cliente:id,nombre_razon,nit_ci', 'operario:id,name'])
-            ->where(function (Builder $query) use ($periodo): void {
-                $query->where(fn (Builder $query) => $periodo->filtrarFecha($query, 'fecha_programada'))
-                    ->orWhere(function (Builder $query) use ($periodo): void {
-                        $query->whereNull('fecha_programada')
-                            ->whereBetween('created_at', [$periodo->inicio(), $periodo->fin()]);
-                    });
-            })
+            ->delPeriodo($periodo)
             ->when($clienteId, fn (Builder $query, int $id) => $query->where('cliente_id', $id))
             ->when($operarioId, fn (Builder $query, int $id) => $query->where('operario_id', $id))
             ->orderBy('numero')

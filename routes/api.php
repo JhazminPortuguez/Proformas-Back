@@ -34,6 +34,7 @@ Route::prefix('v1')->group(function (): void {
 
         Route::prefix('reportes')->group(function (): void {
             Route::get('/ordenes', [ReporteController::class, 'ordenes']);
+            Route::get('/servicios', [ReporteController::class, 'serviciosProformas']);
         });
 
         Route::apiResource('clientes', ClienteController::class);

@@ -20,6 +20,7 @@ class ReportesAccesoTest extends TestCase
     {
         return [
             'ordenes' => ['/api/v1/reportes/ordenes'],
+            'servicios' => ['/api/v1/reportes/servicios'],
         ];
     }
 

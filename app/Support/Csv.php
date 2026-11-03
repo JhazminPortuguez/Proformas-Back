@@ -37,9 +37,19 @@ final class Csv
         }, $archivo, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /** Monto o cantidad con coma decimal y sin separador de miles: "1234,50". */
+    /** Monto con coma decimal y sin separador de miles: "1234,50". */
     public static function numero(string $valor): string
     {
         return str_replace('.', ',', $valor);
+    }
+
+    /** Cantidad sin ceros sobrantes: "2.000" → "2", "1.500" → "1,5". */
+    public static function cantidad(string $valor): string
+    {
+        if (str_contains($valor, '.')) {
+            $valor = rtrim(rtrim($valor, '0'), '.');
+        }
+
+        return self::numero($valor);
     }
 }

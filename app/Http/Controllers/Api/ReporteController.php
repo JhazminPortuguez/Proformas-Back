@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Reportes\ReporteOrdenes;
+use App\Actions\Reportes\ReporteServiciosProformas;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReporteRequest;
 use App\Support\Csv;
@@ -27,6 +28,19 @@ class ReporteController extends Controller
         }
 
         return response()->json($reporte->ejecutar($periodo, $request->clienteId(), $request->operarioId()));
+    }
+
+    public function serviciosProformas(ReporteRequest $request, ReporteServiciosProformas $reporte): JsonResponse|StreamedResponse
+    {
+        $periodo = $request->periodo();
+
+        if ($request->quiereCsv()) {
+            $detalle = $reporte->detalle($periodo, $request->clienteId());
+
+            return Csv::descargar($this->archivo('servicios', $periodo), $detalle['encabezados'], $detalle['filas']);
+        }
+
+        return response()->json($reporte->ejecutar($periodo, $request->clienteId()));
     }
 
     private function archivo(string $reporte, PeriodoReporte $periodo): string
