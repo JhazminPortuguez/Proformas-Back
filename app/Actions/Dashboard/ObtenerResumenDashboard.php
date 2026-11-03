@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Dashboard;
 
+use App\Actions\Cobros\CalcularAntiguedadSaldos;
 use App\Enums\EstadoOrden;
 use App\Enums\EstadoProforma;
 use App\Enums\Rol;
@@ -35,6 +36,10 @@ final class ObtenerResumenDashboard
 
     /** Las fechas programadas se interpretan en la hora de Bolivia. */
     private const ZONA_HORARIA = 'America/La_Paz';
+
+    public function __construct(
+        private readonly CalcularAntiguedadSaldos $antiguedad = new CalcularAntiguedadSaldos,
+    ) {}
 
     /**
      * @param  User|null  $usuario  Si es operario, los trabajos de hoy se limitan a sus órdenes.
@@ -219,50 +224,7 @@ final class ObtenerResumenDashboard
             ->where('saldo', '>', 0)
             ->get(['saldo', 'fecha_vencimiento']);
 
-        $aging = [
-            'al_dia' => '0.00',
-            'd1_30' => '0.00',
-            'd31_60' => '0.00',
-            'd61_90' => '0.00',
-            'd90_plus' => '0.00',
-        ];
-
-        $saldo = '0.00';
-        $montoVencido = '0.00';
-        $vencidas = 0;
-
-        foreach ($cuentasConSaldo as $cuenta) {
-            $saldoCuenta = (string) $cuenta->saldo;
-            $saldo = Dinero::sumar($saldo, $saldoCuenta);
-
-            if ($cuenta->fecha_vencimiento === null) {
-                $aging['al_dia'] = Dinero::sumar($aging['al_dia'], $saldoCuenta);
-
-                continue;
-            }
-
-            $vencimiento = CarbonImmutable::parse($cuenta->fecha_vencimiento->toDateString());
-
-            if ($vencimiento->greaterThanOrEqualTo($hoy)) {
-                $aging['al_dia'] = Dinero::sumar($aging['al_dia'], $saldoCuenta);
-
-                continue;
-            }
-
-            $vencidas++;
-            $montoVencido = Dinero::sumar($montoVencido, $saldoCuenta);
-
-            $diasVencidos = (int) $vencimiento->startOfDay()->diffInDays($hoy->startOfDay(), true);
-
-            $franja = match (true) {
-                $diasVencidos <= 30 => 'd1_30',
-                $diasVencidos <= 60 => 'd31_60',
-                $diasVencidos <= 90 => 'd61_90',
-                default => 'd90_plus',
-            };
-
-            $aging[$franja] = Dinero::sumar($aging[$franja], $saldoCuenta);
-        }
+        $antiguedad = $this->antiguedad->ejecutar($cuentasConSaldo, $hoy);
 
         $cobradoMes = Dinero::redondear(
             (string) (PagoCuenta::query()
@@ -274,16 +236,16 @@ final class ObtenerResumenDashboard
         return [
             'cuentas' => CuentaPorCobrar::query()->count(),
             'pendientes' => $cuentasConSaldo->count(),
-            'vencidas' => $vencidas,
-            'saldo' => (float) $saldo,
-            'monto_vencido' => (float) $montoVencido,
+            'vencidas' => $antiguedad['vencidas'],
+            'saldo' => (float) $antiguedad['saldo'],
+            'monto_vencido' => (float) $antiguedad['monto_vencido'],
             'cobrado_mes' => (float) $cobradoMes,
             'monto_total' => (float) Dinero::redondear(
                 (string) (CuentaPorCobrar::query()->sum('monto_total') ?? 0)
             ),
             'aging' => array_map(
                 fn (string $monto): float => (float) $monto,
-                $aging,
+                $antiguedad['aging'],
             ),
         ];
     }

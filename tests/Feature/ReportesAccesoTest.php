@@ -22,6 +22,7 @@ class ReportesAccesoTest extends TestCase
             'ordenes' => ['/api/v1/reportes/ordenes'],
             'servicios' => ['/api/v1/reportes/servicios'],
             'inventario' => ['/api/v1/reportes/inventario'],
+            'cobros' => ['/api/v1/reportes/cobros'],
         ];
     }
 
