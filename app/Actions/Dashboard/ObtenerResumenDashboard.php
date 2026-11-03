@@ -6,6 +6,7 @@ namespace App\Actions\Dashboard;
 
 use App\Enums\EstadoOrden;
 use App\Enums\EstadoProforma;
+use App\Enums\Rol;
 use App\Enums\TipoProformaItem;
 use App\Models\Cliente;
 use App\Models\CuentaPorCobrar;
@@ -16,6 +17,7 @@ use App\Models\PagoCuenta;
 use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\Servicio;
+use App\Models\User;
 use App\Support\Dinero;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -28,10 +30,17 @@ use Illuminate\Support\Collection;
  */
 final class ObtenerResumenDashboard
 {
+    /** Máximo de órdenes que se listan en "trabajos programados para hoy". */
+    public const TRABAJOS_HOY_LIMITE = 10;
+
+    /** Las fechas programadas se interpretan en la hora de Bolivia. */
+    private const ZONA_HORARIA = 'America/La_Paz';
+
     /**
+     * @param  User|null  $usuario  Si es operario, los trabajos de hoy se limitan a sus órdenes.
      * @return array<string, mixed>
      */
-    public function ejecutar(): array
+    public function ejecutar(?User $usuario = null): array
     {
         $hoy = CarbonImmutable::today();
         $inicioMes = $hoy->startOfMonth()->toDateString();
@@ -54,6 +63,7 @@ final class ObtenerResumenDashboard
         $ordenes = $this->resumenOrdenes($inicioMesTimestamp, $finMesTimestamp);
         $cobros = $this->resumenCobros($hoy, $inicioMes, $finMes);
         $inventario = $this->resumenInventario($inicioMesTimestamp, $finMesTimestamp);
+        $trabajosHoy = $this->trabajosHoy($usuario);
 
         return [
             'clientes' => Cliente::query()->count(),
@@ -71,7 +81,57 @@ final class ObtenerResumenDashboard
             'ingresos_mes' => $cobros['cobrado_mes'],
             'servicios_mas_solicitados' => $this->serviciosMasSolicitados(),
             'actividad_reciente' => $this->actividadReciente(),
+            'trabajos_hoy' => $trabajosHoy['ordenes'],
+            'trabajos_hoy_total' => $trabajosHoy['total'],
         ];
+    }
+
+    /**
+     * Órdenes activas con fecha programada para hoy (hora de Bolivia),
+     * ordenadas por estado según el flujo y luego por código.
+     *
+     * @return array{ordenes: array<int, array<string, mixed>>, total: int}
+     */
+    private function trabajosHoy(?User $usuario): array
+    {
+        $hoy = CarbonImmutable::now(self::ZONA_HORARIA)->toDateString();
+
+        $query = OrdenServicio::query()
+            ->activas()
+            ->whereDate('fecha_programada', $hoy);
+
+        // Igual que el listado de órdenes: un operario solo ve las suyas.
+        if ($usuario !== null && $usuario->rol !== Rol::Admin) {
+            $query->where('operario_id', $usuario->id);
+        }
+
+        $total = (clone $query)->count();
+
+        $ordenes = $query
+            ->with(['cliente:id,nombre_razon,nit_ci', 'operario:id,name'])
+            ->orderByRaw('CASE estado WHEN ? THEN 1 WHEN ? THEN 2 WHEN ? THEN 3 ELSE 4 END', [
+                EstadoOrden::Pendiente->value,
+                EstadoOrden::Asignada->value,
+                EstadoOrden::EnProceso->value,
+            ])
+            ->orderBy('numero')
+            ->orderBy('id')
+            ->limit(self::TRABAJOS_HOY_LIMITE)
+            ->get()
+            ->map(fn (OrdenServicio $orden): array => [
+                'id' => $orden->id,
+                'numero' => $orden->numero,
+                'cliente' => [
+                    'nombre_razon' => $orden->cliente?->nombre_razon,
+                    'nit_ci' => $orden->cliente?->nit_ci,
+                ],
+                'operario' => $orden->operario?->name,
+                'estado' => $orden->estado?->value,
+            ])
+            ->values()
+            ->all();
+
+        return ['ordenes' => $ordenes, 'total' => $total];
     }
 
     /**

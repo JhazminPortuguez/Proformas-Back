@@ -17,6 +17,7 @@ use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\Servicio;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -187,7 +188,9 @@ class DashboardTest extends TestCase
             ->assertJsonPath('cobros.aging.d90_plus', 0)
             ->assertJsonPath('ingresos_mes', 0)
             ->assertJsonPath('servicios_mas_solicitados', [])
-            ->assertJsonPath('actividad_reciente', []);
+            ->assertJsonPath('actividad_reciente', [])
+            ->assertJsonPath('trabajos_hoy', [])
+            ->assertJsonPath('trabajos_hoy_total', 0);
     }
 
     public function test_dashboard_integra_ordenes_inventario_cobros_servicios_y_actividad(): void
@@ -518,6 +521,98 @@ class DashboardTest extends TestCase
         $cliente = User::factory()->create(['rol' => Rol::Cliente]);
 
         $this->actingAs($cliente)->getJson('/api/v1/dashboard')->assertForbidden();
+    }
+
+    public function test_trabajos_hoy_usa_la_fecha_de_bolivia_y_solo_ordenes_activas(): void
+    {
+        // 02:00 UTC del 2 de noviembre = 22:00 del 1 de noviembre en La Paz.
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 02:00:00', 'UTC'));
+
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $operario = User::factory()->create(['rol' => Rol::Operario, 'name' => 'Pedro Operario']);
+        $cliente = Cliente::factory()->create(['nombre_razon' => 'Constructora Andina', 'nit_ci' => '123456789']);
+        $proforma = Proforma::factory()->aceptada()->create(['cliente_id' => $cliente->id]);
+
+        $deHoy = OrdenServicio::factory()->paraProforma($proforma)->asignada()->create([
+            'numero' => 'OS-2026-000002',
+            'operario_id' => $operario->id,
+            'fecha_programada' => '2026-11-01',
+        ]);
+        $pendienteDeHoy = OrdenServicio::factory()->paraProforma($proforma)->create([
+            'numero' => 'OS-2026-000003',
+            'fecha_programada' => '2026-11-01',
+        ]);
+        OrdenServicio::factory()->paraProforma($proforma)->create(['fecha_programada' => '2026-10-31']);
+        OrdenServicio::factory()->paraProforma($proforma)->create(['fecha_programada' => '2026-11-02']);
+        OrdenServicio::factory()->paraProforma($proforma)->create(['fecha_programada' => null]);
+        OrdenServicio::factory()->paraProforma($proforma)->cancelada()->create(['fecha_programada' => '2026-11-01']);
+        OrdenServicio::factory()->paraProforma($proforma)->finalizada()->create(['fecha_programada' => '2026-11-01']);
+
+        $this->actingAs($admin)->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('trabajos_hoy_total', 2)
+            ->assertJsonCount(2, 'trabajos_hoy')
+            // Primero las pendientes y después las asignadas, según el flujo.
+            ->assertJsonPath('trabajos_hoy.0.id', $pendienteDeHoy->id)
+            ->assertJsonPath('trabajos_hoy.0.operario', null)
+            ->assertJsonPath('trabajos_hoy.0.estado', EstadoOrden::Pendiente->value)
+            ->assertJsonPath('trabajos_hoy.1', [
+                'id' => $deHoy->id,
+                'numero' => 'OS-2026-000002',
+                'cliente' => [
+                    'nombre_razon' => 'Constructora Andina',
+                    'nit_ci' => '123456789',
+                ],
+                'operario' => 'Pedro Operario',
+                'estado' => EstadoOrden::Asignada->value,
+            ]);
+    }
+
+    public function test_operario_solo_ve_sus_trabajos_de_hoy(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 15:00:00', 'America/La_Paz'));
+
+        $operario = User::factory()->create(['rol' => Rol::Operario]);
+        $otroOperario = User::factory()->create(['rol' => Rol::Operario]);
+
+        $suya = OrdenServicio::factory()->enProceso()->create([
+            'operario_id' => $operario->id,
+            'fecha_programada' => '2026-11-01',
+        ]);
+        OrdenServicio::factory()->asignada()->create([
+            'operario_id' => $otroOperario->id,
+            'fecha_programada' => '2026-11-01',
+        ]);
+        OrdenServicio::factory()->create(['fecha_programada' => '2026-11-01']);
+
+        $this->actingAs($operario)->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('trabajos_hoy_total', 1)
+            ->assertJsonCount(1, 'trabajos_hoy')
+            ->assertJsonPath('trabajos_hoy.0.id', $suya->id)
+            // El resto del dashboard no se filtra por operario.
+            ->assertJsonPath('ordenes.activas', 3);
+    }
+
+    public function test_trabajos_hoy_lista_como_maximo_diez_con_el_total_completo(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 09:00:00', 'America/La_Paz'));
+
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+
+        foreach (range(1, 12) as $n) {
+            OrdenServicio::factory()->create([
+                'numero' => sprintf('OS-2026-%06d', $n),
+                'fecha_programada' => '2026-11-01',
+            ]);
+        }
+
+        $this->actingAs($admin)->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('trabajos_hoy_total', 12)
+            ->assertJsonCount(10, 'trabajos_hoy')
+            ->assertJsonPath('trabajos_hoy.0.numero', 'OS-2026-000001')
+            ->assertJsonPath('trabajos_hoy.9.numero', 'OS-2026-000010');
     }
 
     private function crearItemServicio(
