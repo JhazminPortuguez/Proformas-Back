@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Reportes\ReporteInventario;
 use App\Actions\Reportes\ReporteOrdenes;
 use App\Actions\Reportes\ReporteServiciosProformas;
 use App\Http\Controllers\Controller;
@@ -41,6 +42,19 @@ class ReporteController extends Controller
         }
 
         return response()->json($reporte->ejecutar($periodo, $request->clienteId()));
+    }
+
+    public function inventario(ReporteRequest $request, ReporteInventario $reporte): JsonResponse|StreamedResponse
+    {
+        $periodo = $request->periodo();
+
+        if ($request->quiereCsv()) {
+            $detalle = $reporte->detalle($periodo, $request->clienteId(), $request->operarioId());
+
+            return Csv::descargar($this->archivo('inventario', $periodo), $detalle['encabezados'], $detalle['filas']);
+        }
+
+        return response()->json($reporte->ejecutar($periodo, $request->clienteId(), $request->operarioId()));
     }
 
     private function archivo(string $reporte, PeriodoReporte $periodo): string

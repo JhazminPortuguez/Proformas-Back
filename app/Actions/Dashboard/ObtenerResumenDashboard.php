@@ -294,10 +294,8 @@ final class ObtenerResumenDashboard
     private function resumenInventario(CarbonImmutable $inicioMes, CarbonImmutable $finMes): array
     {
         $productosBajoStock = Producto::query()
-            ->whereColumn('stock_actual', '<=', 'stock_minimo')
-            ->orderByRaw('(stock_minimo - stock_actual) DESC')
-            ->orderBy('nombre')
-            ->orderBy('id')
+            ->bajoStock()
+            ->porFaltante()
             ->limit(5)
             ->get(['id', 'nombre', 'stock_actual', 'stock_minimo', 'unidad_medida'])
             ->map(fn (Producto $producto): array => [
@@ -316,9 +314,7 @@ final class ObtenerResumenDashboard
 
         return [
             'productos' => Producto::query()->count(),
-            'stock_bajo' => Producto::query()
-                ->whereColumn('stock_actual', '<=', 'stock_minimo')
-                ->count(),
+            'stock_bajo' => Producto::query()->bajoStock()->count(),
             'valor_inventario' => (float) Dinero::redondear((string) ($valorInventario ?? 0)),
             'movimientos_mes' => MovimientoInventario::query()
                 ->whereBetween('created_at', [$inicioMes, $finMes])
