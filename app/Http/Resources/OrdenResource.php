@@ -43,6 +43,7 @@ class OrdenResource extends JsonResource
                 fn () => $this->cuentaPorCobrar === null ? null : [
                     'id' => $this->cuentaPorCobrar->id,
                     'numero' => $this->cuentaPorCobrar->numero,
+                    'moneda' => $this->cuentaPorCobrar->moneda,
                     'saldo' => (float) $this->cuentaPorCobrar->saldo,
                     'estado_cobro' => $this->cuentaPorCobrar->estado_cobro?->value,
                 ],

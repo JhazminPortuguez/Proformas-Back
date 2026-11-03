@@ -83,12 +83,13 @@ class DemoSeederTest extends TestCase
         $cuenta = CuentaPorCobrar::query()->firstOrFail();
 
         $this->assertSame(sprintf('CXC-%d-%06d', now()->year, 1), $cuenta->numero);
-        $this->assertSame('530.00', $cuenta->monto_total);
-        $this->assertSame('265.00', $cuenta->saldo);
+        // Total de la proforma aceptada: (530 - 10 de descuento) * 1,13 = 587,60.
+        $this->assertSame('587.60', $cuenta->monto_total);
+        $this->assertSame('293.80', $cuenta->saldo);
         $this->assertSame('PARCIAL', $cuenta->estado_cobro->value);
         $this->assertSame(1, $cuenta->pagos()->count());
         $this->assertSame('TRANSFERENCIA', $cuenta->pagos()->firstOrFail()->metodo->value);
-        $this->assertSame('265.00', $cuenta->pagos()->firstOrFail()->monto);
+        $this->assertSame('293.80', $cuenta->pagos()->firstOrFail()->monto);
 
         $ventilador = Producto::query()->where('nombre', 'Ventilador de reemplazo')->firstOrFail();
         $this->assertSame('7.000', $ventilador->stock_actual);
@@ -134,7 +135,7 @@ class DemoSeederTest extends TestCase
         $this->assertSame(1, PagoCuenta::count());
         $this->assertDatabaseHas('pagos_cuenta', [
             'empresa_id' => 1,
-            'monto' => 265,
+            'monto' => 293.80,
         ]);
     }
 }

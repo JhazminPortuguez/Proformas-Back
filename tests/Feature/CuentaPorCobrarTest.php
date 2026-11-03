@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Actions\CuentasPorCobrar\GenerarCuentaPorCobrar;
+use App\Actions\Proformas\CalcularTotalesProforma;
 use App\Enums\EstadoCobro;
 use App\Enums\Rol;
 use App\Models\Cliente;
@@ -13,6 +14,7 @@ use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\Servicio;
 use App\Models\User;
+use App\Support\Dinero;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +65,58 @@ class CuentaPorCobrarTest extends TestCase
             'empresa_id' => 1,
             'anio' => now()->year,
             'ultimo_numero' => 1,
+        ]);
+    }
+
+    public function test_cuenta_descuenta_el_descuento_de_la_proforma(): void
+    {
+        $admin = $this->admin();
+        // Líneas por 350; descuento 50; sin impuesto.
+        [$ordenId, $cierre] = $this->cerrarOrden($admin, totales: ['descuento' => 50]);
+
+        $cierre->assertOk()
+            ->assertJsonPath('cuenta.saldo', 300)
+            ->assertJsonPath('cuenta.moneda', 'BOB');
+
+        $cuenta = CuentaPorCobrar::query()->where('orden_id', $ordenId)->firstOrFail();
+
+        $this->assertSame('300.00', $cuenta->monto_total);
+        $this->assertSame('300.00', $cuenta->saldo);
+    }
+
+    public function test_cuenta_incluye_el_impuesto_de_la_proforma(): void
+    {
+        $admin = $this->admin();
+        // Líneas por 350; impuesto 13 % => 45,50; total 395,50.
+        [$ordenId, $cierre] = $this->cerrarOrden($admin, totales: ['impuesto_tasa' => 13]);
+
+        $cierre->assertOk()->assertJsonPath('cuenta.saldo', 395.5);
+
+        $cuenta = CuentaPorCobrar::query()->where('orden_id', $ordenId)->firstOrFail();
+
+        $this->assertSame('395.50', $cuenta->monto_total);
+        $this->assertSame('BOB', $cuenta->moneda);
+    }
+
+    public function test_cuenta_usa_la_moneda_de_la_proforma_sin_convertir(): void
+    {
+        $admin = $this->admin();
+        // Proforma en USD con descuento e impuesto: (350 - 50) * 1,13 = 339.
+        [$ordenId, $cierre] = $this->cerrarOrden($admin, totales: [
+            'moneda' => 'USD',
+            'descuento' => 50,
+            'impuesto_tasa' => 13,
+        ]);
+
+        $cierre->assertOk()
+            ->assertJsonPath('cuenta.moneda', 'USD')
+            ->assertJsonPath('cuenta.saldo', 339);
+
+        $this->assertDatabaseHas('cuentas_por_cobrar', [
+            'orden_id' => $ordenId,
+            'moneda' => 'USD',
+            'monto_total' => 339,
+            'saldo' => 339,
         ]);
     }
 
@@ -569,11 +623,16 @@ class CuentaPorCobrarTest extends TestCase
 
     /**
      * @param  array<int, array<string, mixed>>|null  $items
+     * @param  array{descuento?: int|float, impuesto_tasa?: int|float, moneda?: string}  $totales
      * @return array{0: int, 1: TestResponse}
      */
-    private function cerrarOrden(User $admin, ?Cliente $cliente = null, ?array $items = null): array
-    {
-        $proforma = $this->proformaAceptada($admin, $cliente, $items);
+    private function cerrarOrden(
+        User $admin,
+        ?Cliente $cliente = null,
+        ?array $items = null,
+        array $totales = [],
+    ): array {
+        $proforma = $this->proformaAceptada($admin, $cliente, $items, $totales);
         $operario = $this->operario();
         $ordenId = $this->crearOrden($admin, $proforma, ['operario_id' => $operario->id])
             ->assertCreated()
@@ -589,9 +648,14 @@ class CuentaPorCobrarTest extends TestCase
 
     /**
      * @param  array<int, array<string, mixed>>|null  $items
+     * @param  array{descuento?: int|float, impuesto_tasa?: int|float, moneda?: string}  $totales
      */
-    private function proformaAceptada(User $admin, ?Cliente $cliente = null, ?array $items = null): Proforma
-    {
+    private function proformaAceptada(
+        User $admin,
+        ?Cliente $cliente = null,
+        ?array $items = null,
+        array $totales = [],
+    ): Proforma {
         $cliente ??= Cliente::factory()->create();
         $servicio = Servicio::factory()->create(['precio_base' => 100]);
         $producto = Producto::factory()->create(['precio_unitario' => 50]);
@@ -629,6 +693,16 @@ class CuentaPorCobrarTest extends TestCase
         ];
 
         $proforma->items()->createMany($items);
+
+        $subtotal = Dinero::sumar(0, ...array_column($items, 'total_linea'));
+        $proforma->update([
+            'moneda' => $totales['moneda'] ?? 'BOB',
+            ...app(CalcularTotalesProforma::class)->ejecutar(
+                $subtotal,
+                $totales['descuento'] ?? 0,
+                $totales['impuesto_tasa'] ?? 0,
+            ),
+        ]);
 
         return $proforma->load('items');
     }

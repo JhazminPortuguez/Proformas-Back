@@ -47,7 +47,8 @@ class UpdateProformaRequest extends FormRequest
             'fecha_validez' => $fechaValidez,
             // El estado se cambia exclusivamente con /enviar, /aceptar y /rechazar.
             'estado' => ['prohibited'],
-            'moneda' => ['sometimes', 'required', 'string', Rule::in(Monedas::SOPORTADAS)],
+            // El sistema trabaja solo en bolivianos.
+            'moneda' => ['sometimes', 'required', 'string', Rule::in([Monedas::POR_DEFECTO])],
             'impuesto_tasa' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
             'descuento' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
