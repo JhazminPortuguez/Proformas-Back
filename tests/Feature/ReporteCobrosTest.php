@@ -35,6 +35,7 @@ class ReporteCobrosTest extends TestCase
             'cliente_id' => $cliente->id,
             'monto_total' => '1000.00',
             'saldo' => $saldo,
+            'fecha_emision' => CarbonImmutable::parse($vencimiento)->subDays(30)->toDateString(),
             'fecha_vencimiento' => $vencimiento,
         ]);
 
