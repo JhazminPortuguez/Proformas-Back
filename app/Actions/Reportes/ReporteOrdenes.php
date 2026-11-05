@@ -89,13 +89,16 @@ final class ReporteOrdenes
     }
 
     /**
-     * Una fila por orden del periodo, para el CSV.
+     * Una fila por orden del periodo para el CSV y, debajo, el resumen por
+     * operario (separado por una fila vacía).
      *
      * @return array{encabezados: list<string>, filas: list<list<string|int|null>>}
      */
     public function detalle(PeriodoReporte $periodo, ?int $clienteId = null, ?int $operarioId = null): array
     {
-        $filas = $this->ordenes($periodo, $clienteId, $operarioId)
+        $ordenes = $this->ordenes($periodo, $clienteId, $operarioId);
+
+        $filas = $ordenes
             ->map(function (OrdenServicio $orden): array {
                 $cumplimiento = $this->cumplimiento($orden);
 
@@ -118,6 +121,23 @@ final class ReporteOrdenes
             })
             ->values()
             ->all();
+
+        if ($filas !== []) {
+            $filas[] = [];
+            $filas[] = ['Operario', 'Pendientes', 'Asignadas', 'En proceso', 'Finalizadas', 'Canceladas', 'Total'];
+
+            foreach ($this->porOperario($ordenes) as $fila) {
+                $filas[] = [
+                    $fila['operario'] ?? 'Sin asignar',
+                    $fila['pendientes'],
+                    $fila['asignadas'],
+                    $fila['en_proceso'],
+                    $fila['finalizadas'],
+                    $fila['canceladas'],
+                    $fila['total'],
+                ];
+            }
+        }
 
         return [
             'encabezados' => [
@@ -200,9 +220,11 @@ final class ReporteOrdenes
                 return [
                     'operario_id' => $primera->operario_id,
                     'operario' => $primera->operario?->name,
+                    'pendientes' => $grupo->where('estado', EstadoOrden::Pendiente)->count(),
                     'asignadas' => $grupo->where('estado', EstadoOrden::Asignada)->count(),
                     'en_proceso' => $grupo->where('estado', EstadoOrden::EnProceso)->count(),
                     'finalizadas' => $grupo->where('estado', EstadoOrden::Finalizada)->count(),
+                    'canceladas' => $grupo->where('estado', EstadoOrden::Cancelada)->count(),
                     'total' => $grupo->count(),
                 ];
             })

@@ -83,9 +83,10 @@ class ReporteOrdenesTest extends TestCase
                 'CANCELADA' => 1,
             ])
             ->assertJsonPath('por_operario', [
-                ['operario_id' => $this->ana->id, 'operario' => 'Ana Operaria', 'asignadas' => 1, 'en_proceso' => 0, 'finalizadas' => 2, 'total' => 3],
-                ['operario_id' => $this->beto->id, 'operario' => 'Beto Operario', 'asignadas' => 0, 'en_proceso' => 1, 'finalizadas' => 2, 'total' => 3],
-                ['operario_id' => null, 'operario' => null, 'asignadas' => 0, 'en_proceso' => 0, 'finalizadas' => 0, 'total' => 2],
+                ['operario_id' => $this->ana->id, 'operario' => 'Ana Operaria', 'pendientes' => 0, 'asignadas' => 1, 'en_proceso' => 0, 'finalizadas' => 2, 'canceladas' => 0, 'total' => 3],
+                ['operario_id' => $this->beto->id, 'operario' => 'Beto Operario', 'pendientes' => 0, 'asignadas' => 0, 'en_proceso' => 1, 'finalizadas' => 2, 'canceladas' => 0, 'total' => 3],
+                // Sin operario: una pendiente y una cancelada; las columnas suman el total.
+                ['operario_id' => null, 'operario' => null, 'pendientes' => 1, 'asignadas' => 0, 'en_proceso' => 0, 'finalizadas' => 0, 'canceladas' => 1, 'total' => 2],
             ])
             ->assertJsonPath('cumplimiento', [
                 'a_tiempo' => 2,
@@ -165,8 +166,21 @@ class ReporteOrdenesTest extends TestCase
         $lineas = preg_split('/\r?\n/', trim(ltrim($response->streamedContent(), "\xEF\xBB\xBF")));
 
         $this->assertSame('Código;Cliente;NIT/CI;Operario;Estado;"Fecha programada";"Fecha de finalización";Cumplimiento;"Días de atraso"', $lineas[0]);
-        $this->assertCount(9, $lineas);
+        // 8 órdenes, una fila vacía y el resumen por operario (encabezado + 3 filas).
+        $this->assertCount(14, $lineas);
         $this->assertContains('OS-2026-000002;"Constructora Andina";111;"Ana Operaria";Finalizada;2026-11-05;2026-11-08;"Con atraso";3', $lineas);
         $this->assertContains('OS-2026-000006;"Constructora Andina";111;"Sin asignar";Pendiente;2026-11-30;;;', $lineas);
+        $this->assertSame('', $lineas[9]);
+        $this->assertSame('Operario;Pendientes;Asignadas;"En proceso";Finalizadas;Canceladas;Total', $lineas[10]);
+        $this->assertSame('"Sin asignar";1;0;0;0;1;2', $lineas[13]);
+    }
+
+    public function test_csv_sin_ordenes_no_agrega_el_resumen_por_operario(): void
+    {
+        $response = $this->actingAs($this->admin)->get('/api/v1/reportes/ordenes?formato=csv&desde=2025-01-01&hasta=2025-01-31');
+
+        $lineas = preg_split('/\r?\n/', trim(ltrim($response->streamedContent(), "\xEF\xBB\xBF")));
+
+        $this->assertCount(1, $lineas);
     }
 }

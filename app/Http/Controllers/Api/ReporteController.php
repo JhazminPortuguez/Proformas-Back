@@ -8,6 +8,7 @@ use App\Actions\Reportes\ReporteOrdenes;
 use App\Actions\Reportes\ReporteServiciosProformas;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReporteRequest;
+use App\Models\Cliente;
 use App\Support\Csv;
 use App\Support\PeriodoReporte;
 use Illuminate\Http\JsonResponse;
@@ -69,6 +70,20 @@ class ReporteController extends Controller
         }
 
         return response()->json($reporte->ejecutar($periodo, $request->clienteId()));
+    }
+
+    /**
+     * Opciones del filtro de cliente: solo lo que muestra el selector, sin
+     * datos de contacto.
+     */
+    public function clientes(ReporteRequest $request): JsonResponse
+    {
+        return response()->json([
+            'data' => Cliente::query()
+                ->orderBy('nombre_razon')
+                ->orderBy('id')
+                ->get(['id', 'nombre_razon', 'nit_ci']),
+        ]);
     }
 
     private function archivo(string $reporte, PeriodoReporte $periodo): string
