@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\EstadoProforma;
 use App\Enums\Rol;
 use App\Models\Cliente;
+use App\Models\OrdenServicio;
 use App\Models\Proforma;
 use App\Models\ProformaItem;
 use App\Models\User;
@@ -39,6 +40,22 @@ class ProformaApiTest extends TestCase
         $this->assertContains('enviar', $acciones);
         $this->assertContains('eliminar', $acciones);
         $this->assertContains('pdf', $acciones);
+    }
+
+    public function test_listado_expone_el_numero_de_la_orden_de_las_aceptadas(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $conOrden = Proforma::factory()->aceptada()->create();
+        $sinOrden = Proforma::factory()->aceptada()->create();
+        $orden = OrdenServicio::factory()->paraProforma($conOrden)->create(['numero' => 'OS-2026-000042']);
+
+        $data = collect($this->actingAs($admin)->getJson('/api/v1/proformas')->assertOk()->json('data'))
+            ->keyBy('id');
+
+        $this->assertSame($orden->id, $data[$conOrden->id]['orden_id']);
+        $this->assertSame('OS-2026-000042', $data[$conOrden->id]['orden_numero']);
+        $this->assertNull($data[$sinOrden->id]['orden_id']);
+        $this->assertNull($data[$sinOrden->id]['orden_numero']);
     }
 
     public function test_listado_busca_por_numero(): void
