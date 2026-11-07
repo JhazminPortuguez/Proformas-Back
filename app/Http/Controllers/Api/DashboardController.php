@@ -13,6 +13,6 @@ class DashboardController extends Controller
     {
         abort_unless($request->user()?->rol?->esInterno(), 403);
 
-        return response()->json($resumen->ejecutar());
+        return response()->json($resumen->ejecutar($request->user()));
     }
 }

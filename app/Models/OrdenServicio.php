@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\EstadoOrden;
 use App\Enums\TipoProformaItem;
 use App\Models\Concerns\PerteneceAEmpresa;
+use App\Support\PeriodoReporte;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -111,6 +112,21 @@ class OrdenServicio extends Model
             EstadoOrden::Asignada->value,
             EstadoOrden::EnProceso->value,
         ]);
+    }
+
+    /**
+     * Órdenes de un periodo de reporte: por su fecha programada; las que no
+     * tienen fecha programada, por el día en que se crearon.
+     */
+    public function scopeDelPeriodo(Builder $query, PeriodoReporte $periodo): Builder
+    {
+        return $query->where(function (Builder $query) use ($periodo): void {
+            $query->where(fn (Builder $query) => $periodo->filtrarFecha($query, 'fecha_programada'))
+                ->orWhere(function (Builder $query) use ($periodo): void {
+                    $query->whereNull('fecha_programada')
+                        ->whereBetween('created_at', [$periodo->inicio(), $periodo->fin()]);
+                });
+        });
     }
 
     public function estaActiva(): bool

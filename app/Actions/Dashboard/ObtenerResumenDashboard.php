@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions\Dashboard;
 
+use App\Actions\Cobros\CalcularAntiguedadSaldos;
 use App\Enums\EstadoOrden;
 use App\Enums\EstadoProforma;
+use App\Enums\Rol;
 use App\Enums\TipoProformaItem;
 use App\Models\Cliente;
 use App\Models\CuentaPorCobrar;
@@ -16,6 +18,7 @@ use App\Models\PagoCuenta;
 use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\Servicio;
+use App\Models\User;
 use App\Support\Dinero;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -28,10 +31,21 @@ use Illuminate\Support\Collection;
  */
 final class ObtenerResumenDashboard
 {
+    /** Máximo de órdenes que se listan en "trabajos programados para hoy". */
+    public const TRABAJOS_HOY_LIMITE = 10;
+
+    /** Las fechas programadas se interpretan en la hora de Bolivia. */
+    private const ZONA_HORARIA = 'America/La_Paz';
+
+    public function __construct(
+        private readonly CalcularAntiguedadSaldos $antiguedad = new CalcularAntiguedadSaldos,
+    ) {}
+
     /**
+     * @param  User|null  $usuario  Si es operario, los trabajos de hoy se limitan a sus órdenes.
      * @return array<string, mixed>
      */
-    public function ejecutar(): array
+    public function ejecutar(?User $usuario = null): array
     {
         $hoy = CarbonImmutable::today();
         $inicioMes = $hoy->startOfMonth()->toDateString();
@@ -54,6 +68,7 @@ final class ObtenerResumenDashboard
         $ordenes = $this->resumenOrdenes($inicioMesTimestamp, $finMesTimestamp);
         $cobros = $this->resumenCobros($hoy, $inicioMes, $finMes);
         $inventario = $this->resumenInventario($inicioMesTimestamp, $finMesTimestamp);
+        $trabajosHoy = $this->trabajosHoy($usuario);
 
         return [
             'clientes' => Cliente::query()->count(),
@@ -71,7 +86,57 @@ final class ObtenerResumenDashboard
             'ingresos_mes' => $cobros['cobrado_mes'],
             'servicios_mas_solicitados' => $this->serviciosMasSolicitados(),
             'actividad_reciente' => $this->actividadReciente(),
+            'trabajos_hoy' => $trabajosHoy['ordenes'],
+            'trabajos_hoy_total' => $trabajosHoy['total'],
         ];
+    }
+
+    /**
+     * Órdenes activas con fecha programada para hoy (hora de Bolivia),
+     * ordenadas por estado según el flujo y luego por código.
+     *
+     * @return array{ordenes: array<int, array<string, mixed>>, total: int}
+     */
+    private function trabajosHoy(?User $usuario): array
+    {
+        $hoy = CarbonImmutable::now(self::ZONA_HORARIA)->toDateString();
+
+        $query = OrdenServicio::query()
+            ->activas()
+            ->whereDate('fecha_programada', $hoy);
+
+        // Igual que el listado de órdenes: un operario solo ve las suyas.
+        if ($usuario !== null && $usuario->rol !== Rol::Admin) {
+            $query->where('operario_id', $usuario->id);
+        }
+
+        $total = (clone $query)->count();
+
+        $ordenes = $query
+            ->with(['cliente:id,nombre_razon,nit_ci', 'operario:id,name'])
+            ->orderByRaw('CASE estado WHEN ? THEN 1 WHEN ? THEN 2 WHEN ? THEN 3 ELSE 4 END', [
+                EstadoOrden::Pendiente->value,
+                EstadoOrden::Asignada->value,
+                EstadoOrden::EnProceso->value,
+            ])
+            ->orderBy('numero')
+            ->orderBy('id')
+            ->limit(self::TRABAJOS_HOY_LIMITE)
+            ->get()
+            ->map(fn (OrdenServicio $orden): array => [
+                'id' => $orden->id,
+                'numero' => $orden->numero,
+                'cliente' => [
+                    'nombre_razon' => $orden->cliente?->nombre_razon,
+                    'nit_ci' => $orden->cliente?->nit_ci,
+                ],
+                'operario' => $orden->operario?->name,
+                'estado' => $orden->estado?->value,
+            ])
+            ->values()
+            ->all();
+
+        return ['ordenes' => $ordenes, 'total' => $total];
     }
 
     /**
@@ -159,50 +224,7 @@ final class ObtenerResumenDashboard
             ->where('saldo', '>', 0)
             ->get(['saldo', 'fecha_vencimiento']);
 
-        $aging = [
-            'al_dia' => '0.00',
-            'd1_30' => '0.00',
-            'd31_60' => '0.00',
-            'd61_90' => '0.00',
-            'd90_plus' => '0.00',
-        ];
-
-        $saldo = '0.00';
-        $montoVencido = '0.00';
-        $vencidas = 0;
-
-        foreach ($cuentasConSaldo as $cuenta) {
-            $saldoCuenta = (string) $cuenta->saldo;
-            $saldo = Dinero::sumar($saldo, $saldoCuenta);
-
-            if ($cuenta->fecha_vencimiento === null) {
-                $aging['al_dia'] = Dinero::sumar($aging['al_dia'], $saldoCuenta);
-
-                continue;
-            }
-
-            $vencimiento = CarbonImmutable::parse($cuenta->fecha_vencimiento->toDateString());
-
-            if ($vencimiento->greaterThanOrEqualTo($hoy)) {
-                $aging['al_dia'] = Dinero::sumar($aging['al_dia'], $saldoCuenta);
-
-                continue;
-            }
-
-            $vencidas++;
-            $montoVencido = Dinero::sumar($montoVencido, $saldoCuenta);
-
-            $diasVencidos = (int) $vencimiento->startOfDay()->diffInDays($hoy->startOfDay(), true);
-
-            $franja = match (true) {
-                $diasVencidos <= 30 => 'd1_30',
-                $diasVencidos <= 60 => 'd31_60',
-                $diasVencidos <= 90 => 'd61_90',
-                default => 'd90_plus',
-            };
-
-            $aging[$franja] = Dinero::sumar($aging[$franja], $saldoCuenta);
-        }
+        $antiguedad = $this->antiguedad->ejecutar($cuentasConSaldo, $hoy);
 
         $cobradoMes = Dinero::redondear(
             (string) (PagoCuenta::query()
@@ -214,16 +236,16 @@ final class ObtenerResumenDashboard
         return [
             'cuentas' => CuentaPorCobrar::query()->count(),
             'pendientes' => $cuentasConSaldo->count(),
-            'vencidas' => $vencidas,
-            'saldo' => (float) $saldo,
-            'monto_vencido' => (float) $montoVencido,
+            'vencidas' => $antiguedad['vencidas'],
+            'saldo' => (float) $antiguedad['saldo'],
+            'monto_vencido' => (float) $antiguedad['monto_vencido'],
             'cobrado_mes' => (float) $cobradoMes,
             'monto_total' => (float) Dinero::redondear(
                 (string) (CuentaPorCobrar::query()->sum('monto_total') ?? 0)
             ),
             'aging' => array_map(
                 fn (string $monto): float => (float) $monto,
-                $aging,
+                $antiguedad['aging'],
             ),
         ];
     }
@@ -234,10 +256,8 @@ final class ObtenerResumenDashboard
     private function resumenInventario(CarbonImmutable $inicioMes, CarbonImmutable $finMes): array
     {
         $productosBajoStock = Producto::query()
-            ->whereColumn('stock_actual', '<=', 'stock_minimo')
-            ->orderByRaw('(stock_minimo - stock_actual) DESC')
-            ->orderBy('nombre')
-            ->orderBy('id')
+            ->bajoStock()
+            ->porFaltante()
             ->limit(5)
             ->get(['id', 'nombre', 'stock_actual', 'stock_minimo', 'unidad_medida'])
             ->map(fn (Producto $producto): array => [
@@ -256,9 +276,7 @@ final class ObtenerResumenDashboard
 
         return [
             'productos' => Producto::query()->count(),
-            'stock_bajo' => Producto::query()
-                ->whereColumn('stock_actual', '<=', 'stock_minimo')
-                ->count(),
+            'stock_bajo' => Producto::query()->bajoStock()->count(),
             'valor_inventario' => (float) Dinero::redondear((string) ($valorInventario ?? 0)),
             'movimientos_mes' => MovimientoInventario::query()
                 ->whereBetween('created_at', [$inicioMes, $finMes])

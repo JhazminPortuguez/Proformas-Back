@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\OrdenServicioController;
 use App\Http\Controllers\Api\PagoCuentaController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\ProformaController;
+use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\ServicioController;
 use App\Http\Controllers\Api\SolicitudController;
 use App\Http\Controllers\Api\UserController;
@@ -30,6 +31,14 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['web', 'auth:sanctum', 'active'])->group(function (): void {
         Route::get('/dashboard', DashboardController::class);
+
+        Route::prefix('reportes')->group(function (): void {
+            Route::get('/ordenes', [ReporteController::class, 'ordenes']);
+            Route::get('/servicios', [ReporteController::class, 'serviciosProformas']);
+            Route::get('/inventario', [ReporteController::class, 'inventario']);
+            Route::get('/cobros', [ReporteController::class, 'cobros']);
+            Route::get('/clientes', [ReporteController::class, 'clientes']);
+        });
 
         Route::apiResource('clientes', ClienteController::class);
         Route::get('/clientes/{cliente}/resumen', [ClienteController::class, 'resumen']);

@@ -1,0 +1,93 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Actions\Reportes\ReporteCobros;
+use App\Actions\Reportes\ReporteInventario;
+use App\Actions\Reportes\ReporteOrdenes;
+use App\Actions\Reportes\ReporteServiciosProformas;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\ReporteRequest;
+use App\Models\Cliente;
+use App\Support\Csv;
+use App\Support\PeriodoReporte;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+/**
+ * Reportes del administrador. Cada endpoint acepta `desde`, `hasta` (por
+ * defecto el mes actual en Bolivia), sus filtros y `formato=csv`.
+ */
+class ReporteController extends Controller
+{
+    public function ordenes(ReporteRequest $request, ReporteOrdenes $reporte): JsonResponse|StreamedResponse
+    {
+        $periodo = $request->periodo();
+
+        if ($request->quiereCsv()) {
+            $detalle = $reporte->detalle($periodo, $request->clienteId(), $request->operarioId());
+
+            return Csv::descargar($this->archivo('ordenes', $periodo), $detalle['encabezados'], $detalle['filas']);
+        }
+
+        return response()->json($reporte->ejecutar($periodo, $request->clienteId(), $request->operarioId()));
+    }
+
+    public function serviciosProformas(ReporteRequest $request, ReporteServiciosProformas $reporte): JsonResponse|StreamedResponse
+    {
+        $periodo = $request->periodo();
+
+        if ($request->quiereCsv()) {
+            $detalle = $reporte->detalle($periodo, $request->clienteId());
+
+            return Csv::descargar($this->archivo('servicios', $periodo), $detalle['encabezados'], $detalle['filas']);
+        }
+
+        return response()->json($reporte->ejecutar($periodo, $request->clienteId()));
+    }
+
+    public function inventario(ReporteRequest $request, ReporteInventario $reporte): JsonResponse|StreamedResponse
+    {
+        $periodo = $request->periodo();
+
+        if ($request->quiereCsv()) {
+            $detalle = $reporte->detalle($periodo, $request->clienteId(), $request->operarioId());
+
+            return Csv::descargar($this->archivo('inventario', $periodo), $detalle['encabezados'], $detalle['filas']);
+        }
+
+        return response()->json($reporte->ejecutar($periodo, $request->clienteId(), $request->operarioId()));
+    }
+
+    public function cobros(ReporteRequest $request, ReporteCobros $reporte): JsonResponse|StreamedResponse
+    {
+        $periodo = $request->periodo();
+
+        if ($request->quiereCsv()) {
+            $detalle = $reporte->detalle($request->clienteId());
+
+            return Csv::descargar($this->archivo('cobros', $periodo), $detalle['encabezados'], $detalle['filas']);
+        }
+
+        return response()->json($reporte->ejecutar($periodo, $request->clienteId()));
+    }
+
+    /**
+     * Opciones del filtro de cliente: solo lo que muestra el selector, sin
+     * datos de contacto.
+     */
+    public function clientes(ReporteRequest $request): JsonResponse
+    {
+        return response()->json([
+            'data' => Cliente::query()
+                ->orderBy('nombre_razon')
+                ->orderBy('id')
+                ->get(['id', 'nombre_razon', 'nit_ci']),
+        ]);
+    }
+
+    private function archivo(string $reporte, PeriodoReporte $periodo): string
+    {
+        return sprintf('reporte-%s_%s_%s.csv', $reporte, $periodo->fechaDesde(), $periodo->fechaHasta());
+    }
+}

@@ -32,6 +32,7 @@ class ProformaResource extends JsonResource
             'origen' => $this->origen?->value,
             'solicitud_id' => $this->solicitud_id,
             'orden_id' => $this->orden?->id,
+            'orden_numero' => $this->orden?->numero,
             'items_count' => $this->whenCounted('items'),
             'acciones_disponibles' => $this->accionesDisponibles($request),
             'enviada_at' => $this->enviada_at?->toISOString(),
