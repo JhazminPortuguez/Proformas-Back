@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\CuentaPorCobrarController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\EmpresaController;
 use App\Http\Controllers\Api\InventarioController;
 use App\Http\Controllers\Api\OrdenServicioController;
 use App\Http\Controllers\Api\PagoCuentaController;
@@ -35,6 +36,13 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['web', 'auth:sanctum', 'active'])->group(function (): void {
         Route::get('/dashboard', DashboardController::class);
+
+        // Configuración de la empresa: solo el administrador.
+        Route::get('/empresa', [EmpresaController::class, 'show']);
+        Route::put('/empresa', [EmpresaController::class, 'update']);
+        Route::get('/empresa/logo', [EmpresaController::class, 'logo']);
+        Route::post('/empresa/logo', [EmpresaController::class, 'subirLogo']);
+        Route::delete('/empresa/logo', [EmpresaController::class, 'eliminarLogo']);
 
         Route::prefix('reportes')->group(function (): void {
             Route::get('/ordenes', [ReporteController::class, 'ordenes']);
