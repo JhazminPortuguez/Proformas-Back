@@ -39,5 +39,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('register', function (Request $request) {
             return Limit::perMinute(5)->by($request->ip());
         });
+
+        // Portal: un cliente no puede enviar solicitudes en ráfaga.
+        RateLimiter::for('portal-solicitudes', function (Request $request) {
+            return Limit::perMinute(10)->by((string) ($request->user()?->getKey() ?? $request->ip()));
+        });
     }
 }

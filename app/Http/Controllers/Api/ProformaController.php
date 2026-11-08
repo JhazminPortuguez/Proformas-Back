@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Proformas\AceptarProforma;
 use App\Actions\Proformas\ActualizarProforma;
 use App\Actions\Proformas\CrearProforma;
+use App\Actions\Proformas\DescargarPdfProforma;
 use App\Actions\Proformas\EliminarProforma;
 use App\Actions\Proformas\EnviarProforma;
 use App\Actions\Proformas\RechazarProforma;
@@ -15,12 +16,8 @@ use App\Http\Requests\RechazarProformaRequest;
 use App\Http\Requests\StoreProformaRequest;
 use App\Http\Requests\UpdateProformaRequest;
 use App\Http\Resources\ProformaResource;
-use App\Models\Empresa;
 use App\Models\Proforma;
 use App\Support\Busqueda;
-use App\Support\EmpresaActual;
-use App\Support\Monedas;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
@@ -125,24 +122,10 @@ class ProformaController extends Controller
         );
     }
 
-    public function pdf(Proforma $proforma)
+    public function pdf(Proforma $proforma, DescargarPdfProforma $descargar)
     {
         $this->authorize('descargarPdf', $proforma);
 
-        $proforma->load('cliente', 'items.producto', 'items.servicio', 'aceptador');
-
-        $empresa = Empresa::query()->find(EmpresaActual::id())
-            ?? new Empresa(['nombre' => 'Empresa']);
-
-        $pdf = Pdf::loadView('proformas.pdf', [
-            'proforma' => $proforma,
-            'cliente' => $proforma->cliente,
-            'items' => $proforma->items,
-            'empresa' => $empresa,
-            'moneda' => $proforma->moneda ?: Monedas::POR_DEFECTO,
-            'simbolo' => Monedas::simbolo($proforma->moneda ?: Monedas::POR_DEFECTO),
-        ])->setPaper('a4');
-
-        return $pdf->download("{$proforma->numero}.pdf");
+        return $descargar->ejecutar($proforma);
     }
 }

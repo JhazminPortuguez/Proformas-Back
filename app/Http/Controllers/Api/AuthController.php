@@ -55,21 +55,15 @@ class AuthController extends Controller
         $empresaId = EmpresaActual::id();
 
         $usuario = DB::transaction(function () use ($datos, $empresaId): User {
-            $cliente = Cliente::query()
-                ->whereRaw('lower(email) = ?', [$datos['email']])
-                ->first();
-
-            if ($cliente === null) {
-                $cliente = Cliente::create([
-                    'nombre_razon' => $datos['name'],
-                    'email' => $datos['email'],
-                    'telefono' => $datos['telefono'] ?? null,
-                    'estado' => EstadoCliente::Prospecto,
-                    'empresa_id' => $empresaId,
-                ]);
-            } elseif ($cliente->telefono === null && ! empty($datos['telefono'])) {
-                $cliente->update(['telefono' => $datos['telefono']]);
-            }
+            // El correo no pertenece a ningún cliente (lo valida
+            // RegisterRequest): el registro siempre crea un cliente nuevo.
+            $cliente = Cliente::create([
+                'nombre_razon' => $datos['name'],
+                'email' => $datos['email'],
+                'telefono' => $datos['telefono'] ?? null,
+                'estado' => EstadoCliente::Prospecto,
+                'empresa_id' => $empresaId,
+            ]);
 
             return User::create([
                 'name' => $datos['name'],

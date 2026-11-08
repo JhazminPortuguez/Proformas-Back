@@ -46,7 +46,7 @@ class RegistrationTest extends TestCase
         $this->assertSame(1, Cliente::where('email', 'maria@x.com')->count());
     }
 
-    public function test_registro_vincula_cliente_existente_por_email(): void
+    public function test_registro_rechaza_el_correo_de_un_cliente_existente(): void
     {
         $existente = Cliente::factory()->create([
             'nombre_razon' => 'ACME SRL',
@@ -55,23 +55,28 @@ class RegistrationTest extends TestCase
             'estado' => EstadoCliente::Activo,
         ]);
 
+        // Sin importar mayúsculas: nadie puede tomar el acceso de un cliente
+        // solo por conocer su correo.
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Contacto ACME',
             'email' => 'Contacto@ACME.com',
             'password' => 'secret123',
             'password_confirmation' => 'secret123',
             'telefono' => '70000000',
-        ])->assertCreated();
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'email' => 'Este correo ya pertenece a un cliente; pide a la empresa tu acceso.',
+            ]);
 
-        $usuario = User::where('email', 'contacto@acme.com')->firstOrFail();
-
-        $this->assertSame($existente->id, $usuario->cliente_id);
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'contacto@acme.com']);
         $this->assertSame(1, Cliente::whereRaw('lower(email) = ?', ['contacto@acme.com'])->count());
         $this->assertDatabaseHas('clientes', [
             'id' => $existente->id,
             'nombre_razon' => 'ACME SRL',
             'estado' => 'activo',
-            'telefono' => '70000000',
+            'telefono' => null,
         ]);
     }
 
