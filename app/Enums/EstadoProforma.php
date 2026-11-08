@@ -43,6 +43,21 @@ enum EstadoProforma: string
         };
     }
 
+    /**
+     * Estados que el cliente ve en el portal. Nunca ve los borradores.
+     *
+     * @return list<self>
+     */
+    public static function visiblesParaCliente(): array
+    {
+        return [self::Enviada, self::Aceptada, self::Rechazada];
+    }
+
+    public function esVisibleParaCliente(): bool
+    {
+        return $this !== self::Borrador;
+    }
+
     public function permiteEditarContenido(): bool
     {
         return $this === self::Borrador;

@@ -31,6 +31,7 @@ class UserController extends Controller
         $porPagina = min(max($request->integer('per_page', 15), 1), 100);
 
         $usuarios = User::query()
+            ->with('cliente')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $termino = Busqueda::patron((string) $request->input('search'));
 

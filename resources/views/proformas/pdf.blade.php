@@ -66,10 +66,16 @@
     <div class="box">
         <h3>Cliente</h3>
         <strong>{{ $cliente?->nombre_razon }}</strong>
+        @php
+            // Solo los datos que existen, separados por " · " (sin separador suelto).
+            $datosCliente = array_values(array_filter([
+                $cliente?->nit_ci ? 'NIT/CI: '.$cliente->nit_ci : null,
+                $cliente?->telefono ? 'Tel: '.$cliente->telefono : null,
+                $cliente?->email,
+            ]));
+        @endphp
         <div class="muted">
-            @if ($cliente?->nit_ci) NIT/CI: {{ $cliente->nit_ci }} @endif
-            @if ($cliente?->telefono) &middot; Tel: {{ $cliente->telefono }} @endif
-            @if ($cliente?->email) &middot; {{ $cliente->email }} @endif
+            {{ implode(' · ', $datosCliente) }}
             @if ($cliente?->direccion) <br>{{ $cliente->direccion }} @endif
         </div>
     </div>
@@ -141,8 +147,7 @@
     <div class="footer">
         Documento generado electrónicamente. Precios expresados en {{ $moneda }}.
         @if ($proforma->aceptada_at)
-            Aceptada el {{ $proforma->aceptada_at->format('d/m/Y H:i') }}
-            @if ($proforma->aceptador) por {{ $proforma->aceptador->name }} @endif.
+            Aceptada el {{ $proforma->aceptada_at->format('d/m/Y H:i') }}{{ $proforma->aceptador ? ' por '.$proforma->aceptador->name : '' }}.
         @endif
     </div>
 </body>

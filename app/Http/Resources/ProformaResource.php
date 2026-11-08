@@ -33,6 +33,9 @@ class ProformaResource extends JsonResource
             'solicitud_id' => $this->solicitud_id,
             'orden_id' => $this->orden?->id,
             'orden_numero' => $this->orden?->numero,
+            // Con esto el front sabe si un operario puede abrir la orden
+            // (solo ve las que tiene asignadas).
+            'orden_operario_id' => $this->orden?->operario_id,
             'items_count' => $this->whenCounted('items'),
             'acciones_disponibles' => $this->accionesDisponibles($request),
             'enviada_at' => $this->enviada_at?->toISOString(),

@@ -72,6 +72,12 @@ class Proforma extends Model
         return $this->hasMany(ProformaItem::class, 'proforma_id');
     }
 
+    /** Primera línea de la proforma (resumen en el portal del cliente). */
+    public function primerItem(): HasOne
+    {
+        return $this->hasOne(ProformaItem::class, 'proforma_id')->oldestOfMany('id');
+    }
+
     public function creador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

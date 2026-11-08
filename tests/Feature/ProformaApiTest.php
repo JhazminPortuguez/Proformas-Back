@@ -56,6 +56,27 @@ class ProformaApiTest extends TestCase
         $this->assertSame('OS-2026-000042', $data[$conOrden->id]['orden_numero']);
         $this->assertNull($data[$sinOrden->id]['orden_id']);
         $this->assertNull($data[$sinOrden->id]['orden_numero']);
+        $this->assertNull($data[$sinOrden->id]['orden_operario_id']);
+    }
+
+    public function test_expone_el_operario_de_la_orden_para_saber_si_se_puede_abrir(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $operario = User::factory()->create(['rol' => Rol::Operario]);
+        $asignada = Proforma::factory()->aceptada()->create();
+        $sinAsignar = Proforma::factory()->aceptada()->create();
+        OrdenServicio::factory()->paraProforma($asignada)->create(['operario_id' => $operario->id]);
+        OrdenServicio::factory()->paraProforma($sinAsignar)->create(['operario_id' => null]);
+
+        $data = collect($this->actingAs($admin)->getJson('/api/v1/proformas')->assertOk()->json('data'))
+            ->keyBy('id');
+
+        $this->assertSame($operario->id, $data[$asignada->id]['orden_operario_id']);
+        $this->assertNull($data[$sinAsignar->id]['orden_operario_id']);
+
+        $this->actingAs($operario)->getJson("/api/v1/proformas/{$asignada->id}")
+            ->assertOk()
+            ->assertJsonPath('orden_operario_id', $operario->id);
     }
 
     public function test_listado_busca_por_numero(): void
