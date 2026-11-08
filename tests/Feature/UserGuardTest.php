@@ -196,4 +196,16 @@ class UserGuardTest extends TestCase
             'cliente_id' => $cliente->id,
         ])->assertForbidden();
     }
+
+    public function test_listado_de_usuarios_muestra_el_cliente_vinculado(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $cliente = Cliente::factory()->create(['nombre_razon' => 'Ferretería Sol']);
+        User::factory()->create(['rol' => Rol::Cliente, 'cliente_id' => $cliente->id, 'email' => 'sol@cliente.test']);
+
+        $usuarios = collect($this->actingAs($admin)->getJson('/api/v1/users')->assertOk()->json('data'));
+
+        $this->assertSame('Ferretería Sol', $usuarios->firstWhere('email', 'sol@cliente.test')['cliente']['nombre_razon']);
+        $this->assertNull($usuarios->firstWhere('id', $admin->id)['cliente']);
+    }
 }
