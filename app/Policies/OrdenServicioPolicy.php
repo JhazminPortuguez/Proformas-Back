@@ -29,6 +29,12 @@ class OrdenServicioPolicy
         return $this->esAdmin($user);
     }
 
+    /** Cambiar la fecha programada es solo del admin; el estado se valida en la acción. */
+    public function reprogramar(User $user, OrdenServicio $orden): bool
+    {
+        return $this->esAdmin($user);
+    }
+
     public function iniciar(User $user, OrdenServicio $orden): bool
     {
         return $this->puedeOperar($user, $orden);

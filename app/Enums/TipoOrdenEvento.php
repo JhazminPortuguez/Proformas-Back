@@ -13,6 +13,7 @@ enum TipoOrdenEvento: string
     case Cancelacion = 'CANCELACION';
     case Cierre = 'CIERRE';
     case Consumo = 'CONSUMO';
+    case Reprogramacion = 'REPROGRAMACION';
 
     public function etiqueta(): string
     {
@@ -24,6 +25,7 @@ enum TipoOrdenEvento: string
             self::Cancelacion => 'Cancelación',
             self::Cierre => 'Cierre',
             self::Consumo => 'Consumo de materiales',
+            self::Reprogramacion => 'Reprogramación',
         };
     }
 }

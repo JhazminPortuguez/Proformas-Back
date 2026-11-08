@@ -33,6 +33,12 @@ enum EstadoOrden: string
         return ! $this->esFinal();
     }
 
+    /** La fecha programada solo se cambia antes de empezar el trabajo. */
+    public function admiteReprogramacion(): bool
+    {
+        return in_array($this, [self::Pendiente, self::Asignada], true);
+    }
+
     /**
      * Flujo permitido, sin saltos ni reactivación:
      * PENDIENTE -> ASIGNADA|CANCELADA

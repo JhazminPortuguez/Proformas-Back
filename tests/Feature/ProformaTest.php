@@ -278,6 +278,50 @@ class ProformaTest extends TestCase
             ->assertJsonValidationErrors('estado');
     }
 
+    public function test_no_se_envia_una_proforma_con_total_cero(): void
+    {
+        [$usuario, $proforma] = $this->crearProforma(0, 1);
+
+        $this->assertEquals(0, $proforma['total']);
+
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$proforma['id']}/enviar")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.total.0', 'La proforma debe tener un total mayor a Bs 0 para enviarse.');
+
+        $this->assertDatabaseHas('proformas', [
+            'id' => $proforma['id'],
+            'estado' => 'BORRADOR',
+            'enviada_at' => null,
+        ]);
+    }
+
+    public function test_un_descuento_que_deja_el_total_en_cero_tampoco_se_envia(): void
+    {
+        [$usuario, $proforma, $producto] = $this->crearProforma(100, 1);
+
+        $datos = [
+            'cliente_id' => $proforma['cliente_id'],
+            'fecha_emision' => '2026-10-23',
+            'items' => [['producto_id' => $producto->id, 'cantidad' => 1]],
+        ];
+
+        $this->actingAs($usuario)->putJson("/api/v1/proformas/{$proforma['id']}", [...$datos, 'descuento' => 100])
+            ->assertOk()
+            ->assertJsonPath('total', fn ($total) => (float) $total === 0.0);
+
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$proforma['id']}/enviar")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('total');
+
+        // Con un total positivo se envía normalmente.
+        $this->actingAs($usuario)->putJson("/api/v1/proformas/{$proforma['id']}", [...$datos, 'descuento' => 0])
+            ->assertOk();
+
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$proforma['id']}/enviar")
+            ->assertOk()
+            ->assertJsonPath('estado', 'ENVIADA');
+    }
+
     public function test_index_pagina_y_filtra_por_estado(): void
     {
         [$usuario] = $this->crearProforma(100, 1);

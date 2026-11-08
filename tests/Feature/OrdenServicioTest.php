@@ -6,6 +6,7 @@ use App\Enums\EstadoProforma;
 use App\Enums\Rol;
 use App\Models\Cliente;
 use App\Models\Empresa;
+use App\Models\OrdenEvento;
 use App\Models\OrdenItem;
 use App\Models\OrdenServicio;
 use App\Models\Producto;
@@ -46,7 +47,7 @@ class OrdenServicioTest extends TestCase
             ->assertJsonPath('eventos.0.estado_anterior', null)
             ->assertJsonPath('eventos.0.estado_nuevo', 'PENDIENTE')
             ->assertJsonPath('eventos.0.user_id', $admin->id)
-            ->assertJsonPath('acciones_disponibles', ['ver', 'asignar', 'cancelar']);
+            ->assertJsonPath('acciones_disponibles', ['ver', 'asignar', 'reprogramar', 'cancelar']);
 
         $items = collect($response->json('items'))->keyBy('tipo');
 
@@ -175,7 +176,7 @@ class OrdenServicioTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('estado', 'ASIGNADA')
             ->assertJsonPath('operario_id', $operario->id)
-            ->assertJsonPath('acciones_disponibles', ['ver', 'iniciar', 'cancelar']);
+            ->assertJsonPath('acciones_disponibles', ['ver', 'reprogramar', 'iniciar', 'cancelar']);
 
         $eventos = collect($response->json('eventos'));
 
@@ -573,6 +574,146 @@ class OrdenServicioTest extends TestCase
                 'items' => [['id', 'tipo', 'descripcion', 'cantidad', 'precio_unitario', 'total_linea']],
                 'eventos' => [['id', 'tipo', 'descripcion', 'usuario' => ['id', 'name']]],
             ]);
+    }
+
+    public function test_admin_reprograma_orden_pendiente_y_asignada_y_queda_en_el_historial(): void
+    {
+        $admin = $this->admin();
+        $operario = $this->operario();
+
+        $pendiente = $this->crearOrden($admin, $this->proformaAceptada($admin), [
+            'fecha_programada' => '2026-11-05',
+        ])->assertCreated()->json('id');
+
+        $this->actingAs($admin)->postJson("/api/v1/ordenes/{$pendiente}/reprogramar", [
+            'fecha_programada' => '2026-11-12',
+        ])
+            ->assertOk()
+            ->assertJsonPath('estado', 'PENDIENTE')
+            ->assertJsonPath('fecha_programada', '2026-11-12')
+            ->assertJsonPath('updated_by', $admin->id)
+            ->assertJsonPath('eventos.1.tipo', 'REPROGRAMACION')
+            ->assertJsonPath('eventos.1.estado_anterior', null)
+            ->assertJsonPath('eventos.1.estado_nuevo', null)
+            ->assertJsonPath('eventos.1.user_id', $admin->id)
+            ->assertJsonPath('eventos.1.descripcion', 'Fecha programada cambiada de 05/11/2026 a 12/11/2026.');
+
+        $this->assertSame(
+            ['fecha_anterior' => '2026-11-05', 'fecha_nueva' => '2026-11-12'],
+            OrdenEvento::query()->where('orden_id', $pendiente)->where('tipo', 'REPROGRAMACION')->sole()->metadata,
+        );
+
+        // Una orden asignada y sin fecha también se puede programar.
+        $asignada = $this->crearOrden($admin, $this->proformaAceptada($admin), [
+            'operario_id' => $operario->id,
+        ])->assertCreated()->json('id');
+
+        $this->actingAs($admin)->postJson("/api/v1/ordenes/{$asignada}/reprogramar", [
+            'fecha_programada' => '2026-11-20',
+        ])
+            ->assertOk()
+            ->assertJsonPath('estado', 'ASIGNADA')
+            ->assertJsonPath('operario_id', $operario->id)
+            ->assertJsonPath('fecha_programada', '2026-11-20')
+            ->assertJsonPath('eventos.2.descripcion', 'Fecha programada cambiada de sin fecha a 20/11/2026.');
+
+        $this->assertSame(
+            ['fecha_anterior' => null, 'fecha_nueva' => '2026-11-20'],
+            OrdenEvento::query()->where('orden_id', $asignada)->where('tipo', 'REPROGRAMACION')->sole()->metadata,
+        );
+    }
+
+    public function test_operario_y_cliente_no_pueden_reprogramar(): void
+    {
+        $admin = $this->admin();
+        $operario = $this->operario();
+        $cliente = User::factory()->create(['rol' => Rol::Cliente]);
+
+        $ordenId = $this->crearOrden($admin, $this->proformaAceptada($admin), [
+            'operario_id' => $operario->id,
+            'fecha_programada' => '2026-11-05',
+        ])->assertCreated()->json('id');
+
+        // Aunque la orden sea suya, al operario no se le ofrece la acción.
+        $this->actingAs($operario)->getJson("/api/v1/ordenes/{$ordenId}")
+            ->assertOk()
+            ->assertJsonPath('acciones_disponibles', fn ($acciones) => ! in_array('reprogramar', $acciones, true));
+
+        foreach ([$operario, $cliente] as $usuario) {
+            $this->actingAs($usuario)->postJson("/api/v1/ordenes/{$ordenId}/reprogramar", [
+                'fecha_programada' => '2026-11-12',
+            ])->assertForbidden();
+        }
+
+        $this->assertSame(
+            '2026-11-05',
+            OrdenServicio::query()->findOrFail($ordenId)->fecha_programada?->toDateString(),
+        );
+        $this->assertDatabaseMissing('orden_eventos', ['orden_id' => $ordenId, 'tipo' => 'REPROGRAMACION']);
+    }
+
+    public function test_no_se_reprograma_una_orden_en_proceso_finalizada_o_cancelada(): void
+    {
+        $admin = $this->admin();
+        $operario = $this->operario();
+
+        $enProceso = $this->crearOrden($admin, $this->proformaAceptada($admin), [
+            'operario_id' => $operario->id,
+        ])->assertCreated()->json('id');
+        $this->actingAs($operario)->postJson("/api/v1/ordenes/{$enProceso}/iniciar")->assertOk();
+
+        $finalizada = $this->crearOrden($admin, $this->proformaAceptada($admin), [
+            'operario_id' => $operario->id,
+        ])->assertCreated()->json('id');
+        $this->actingAs($operario)->postJson("/api/v1/ordenes/{$finalizada}/iniciar")->assertOk();
+        $this->actingAs($operario)->postJson("/api/v1/ordenes/{$finalizada}/finalizar")->assertOk();
+
+        $cancelada = $this->crearOrden($admin, $this->proformaAceptada($admin))->assertCreated()->json('id');
+        $this->actingAs($admin)->postJson("/api/v1/ordenes/{$cancelada}/cancelar", [
+            'motivo' => 'El cliente desistió.',
+        ])->assertOk();
+
+        foreach ([$enProceso, $finalizada, $cancelada] as $ordenId) {
+            $this->actingAs($admin)->getJson("/api/v1/ordenes/{$ordenId}")
+                ->assertJsonPath('acciones_disponibles', fn ($acciones) => ! in_array('reprogramar', $acciones, true));
+
+            $this->actingAs($admin)->postJson("/api/v1/ordenes/{$ordenId}/reprogramar", [
+                'fecha_programada' => '2026-11-12',
+            ])
+                ->assertStatus(422)
+                ->assertJsonPath('errors.estado.0', 'Solo se puede reprogramar una orden pendiente o asignada.');
+        }
+
+        $this->assertDatabaseMissing('orden_eventos', ['tipo' => 'REPROGRAMACION']);
+    }
+
+    public function test_reprogramar_valida_la_fecha(): void
+    {
+        $admin = $this->admin();
+        $ordenId = $this->crearOrden($admin, $this->proformaAceptada($admin), [
+            'fecha_programada' => '2026-11-05',
+        ])->assertCreated()->json('id');
+
+        $invalidos = [
+            [],
+            ['fecha_programada' => ''],
+            ['fecha_programada' => '12/11/2026'],
+            ['fecha_programada' => '2026-02-30'],
+        ];
+
+        foreach ($invalidos as $datos) {
+            $this->actingAs($admin)->postJson("/api/v1/ordenes/{$ordenId}/reprogramar", $datos)
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('fecha_programada');
+        }
+
+        $this->actingAs($admin)->postJson("/api/v1/ordenes/{$ordenId}/reprogramar", [
+            'fecha_programada' => '2026-11-05',
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.fecha_programada.0', 'La fecha nueva es igual a la fecha programada actual.');
+
+        $this->assertDatabaseMissing('orden_eventos', ['orden_id' => $ordenId, 'tipo' => 'REPROGRAMACION']);
     }
 
     private function admin(): User
