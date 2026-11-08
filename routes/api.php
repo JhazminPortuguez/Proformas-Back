@@ -77,6 +77,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/proformas/{proforma}/pdf', [ProformaController::class, 'pdf']);
 
         Route::post('/ordenes/{orden}/asignar', [OrdenServicioController::class, 'asignar']);
+        Route::post('/ordenes/{orden}/reprogramar', [OrdenServicioController::class, 'reprogramar']);
         Route::post('/ordenes/{orden}/iniciar', [OrdenServicioController::class, 'iniciar']);
         Route::post('/ordenes/{orden}/finalizar', [OrdenServicioController::class, 'finalizar']);
         Route::post('/ordenes/{orden}/cancelar', [OrdenServicioController::class, 'cancelar']);

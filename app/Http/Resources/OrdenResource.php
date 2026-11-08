@@ -101,6 +101,10 @@ class OrdenResource extends JsonResource
             $acciones[] = 'asignar';
         }
 
+        if ($orden->estado?->admiteReprogramacion() && $user->can('reprogramar', $orden)) {
+            $acciones[] = 'reprogramar';
+        }
+
         if ($orden->estado === EstadoOrden::Asignada && $user->can('iniciar', $orden)) {
             $acciones[] = 'iniciar';
         }

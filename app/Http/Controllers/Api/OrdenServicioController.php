@@ -9,6 +9,7 @@ use App\Actions\Ordenes\ConsumirMaterialesOrden;
 use App\Actions\Ordenes\CrearOrdenDesdeProforma;
 use App\Actions\Ordenes\FinalizarOrden;
 use App\Actions\Ordenes\IniciarOrden;
+use App\Actions\Ordenes\ReprogramarOrden;
 use App\Enums\EstadoOrden;
 use App\Enums\Rol;
 use App\Http\Controllers\Concerns\RespondePaginado;
@@ -19,6 +20,7 @@ use App\Http\Requests\CerrarOrdenRequest;
 use App\Http\Requests\ConsumirMaterialesRequest;
 use App\Http\Requests\FinalizarOrdenRequest;
 use App\Http\Requests\IniciarOrdenRequest;
+use App\Http\Requests\ReprogramarOrdenRequest;
 use App\Http\Requests\StoreOrdenRequest;
 use App\Http\Resources\OrdenResource;
 use App\Models\OrdenServicio;
@@ -111,6 +113,15 @@ class OrdenServicioController extends Controller
 
         return new OrdenResource(
             $asignar->ejecutar($orden, (int) $request->validated('operario_id'), $request->user())
+        );
+    }
+
+    public function reprogramar(ReprogramarOrdenRequest $request, OrdenServicio $orden, ReprogramarOrden $reprogramar)
+    {
+        $this->authorize('reprogramar', $orden);
+
+        return new OrdenResource(
+            $reprogramar->ejecutar($orden, (string) $request->validated('fecha_programada'), $request->user())
         );
     }
 

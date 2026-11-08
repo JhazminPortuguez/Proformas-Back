@@ -12,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 
 final class EnviarProforma
 {
+    public const MENSAJE_TOTAL_CERO = 'La proforma debe tener un total mayor a Bs 0 para enviarse.';
+
     public function ejecutar(Proforma $proforma, User $usuario): Proforma
     {
         return DB::transaction(function () use ($proforma, $usuario) {
@@ -23,6 +25,12 @@ final class EnviarProforma
             if ($actual->estado !== EstadoProforma::Borrador) {
                 throw ValidationException::withMessages([
                     'estado' => "No se puede enviar una proforma en estado {$actual->estado->etiqueta()}.",
+                ]);
+            }
+
+            if ((float) $actual->total <= 0) {
+                throw ValidationException::withMessages([
+                    'total' => self::MENSAJE_TOTAL_CERO,
                 ]);
             }
 
