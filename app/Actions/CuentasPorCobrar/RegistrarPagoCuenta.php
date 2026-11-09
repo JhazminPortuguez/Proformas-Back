@@ -8,6 +8,8 @@ use App\Enums\EstadoCobro;
 use App\Models\CuentaPorCobrar;
 use App\Models\User;
 use App\Support\Dinero;
+use App\Support\FechaBolivia;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -44,11 +46,13 @@ final class RegistrarPagoCuenta
                 ]);
             }
 
+            $fechaPago = $this->validarFechaPago($actual, $datos['fecha_pago'] ?? null);
+
             $actual->pagos()->create([
                 'empresa_id' => $actual->empresa_id,
                 'monto' => $monto,
                 'metodo' => $datos['metodo'],
-                'fecha_pago' => $datos['fecha_pago'] ?? today()->toDateString(),
+                'fecha_pago' => $fechaPago,
                 'referencia' => $datos['referencia'] ?? null,
                 'observaciones' => $datos['observaciones'] ?? null,
                 'created_by' => $usuario->id,
@@ -64,6 +68,37 @@ final class RegistrarPagoCuenta
 
             return $this->cargar($actual);
         });
+    }
+
+    /**
+     * Sin fecha, el pago es de hoy (Bolivia). No se aceptan pagos futuros ni
+     * anteriores a la emisión de la cuenta.
+     */
+    private function validarFechaPago(CuentaPorCobrar $cuenta, ?string $fecha): string
+    {
+        $hoy = FechaBolivia::hoyTexto();
+
+        if ($fecha === null || trim($fecha) === '') {
+            return $hoy;
+        }
+
+        $fechaPago = CarbonImmutable::parse($fecha)->toDateString();
+
+        if ($fechaPago > $hoy) {
+            throw ValidationException::withMessages([
+                'fecha_pago' => 'La fecha de pago no puede ser futura (hoy es '.FechaBolivia::formato($hoy).').',
+            ]);
+        }
+
+        $emision = $cuenta->fecha_emision?->toDateString();
+
+        if ($emision !== null && $fechaPago < $emision) {
+            throw ValidationException::withMessages([
+                'fecha_pago' => 'La fecha de pago no puede ser anterior a la emisión de la cuenta ('.FechaBolivia::formato($emision).').',
+            ]);
+        }
+
+        return $fechaPago;
     }
 
     private function estadoParaSaldo(string $saldo): EstadoCobro

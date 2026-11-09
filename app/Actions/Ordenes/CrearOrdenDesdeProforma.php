@@ -11,6 +11,7 @@ use App\Enums\TipoProformaItem;
 use App\Models\OrdenServicio;
 use App\Models\Proforma;
 use App\Models\User;
+use App\Support\FechaBolivia;
 use App\Support\OperarioAsignable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -58,7 +59,7 @@ final class CrearOrdenDesdeProforma
             $orden = OrdenServicio::create([
                 'proforma_id' => $proforma->getKey(),
                 'cliente_id' => $proforma->cliente_id,
-                'numero' => $this->numeros->ejecutar(now()),
+                'numero' => $this->numeros->ejecutar(FechaBolivia::hoy()),
                 'operario_id' => null,
                 'estado' => EstadoOrden::Pendiente,
                 'fecha_programada' => $datos['fecha_programada'] ?? null,

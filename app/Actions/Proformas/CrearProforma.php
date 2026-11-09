@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions\Proformas;
 
+use App\Enums\EstadoCliente;
 use App\Enums\EstadoProforma;
 use App\Enums\OrigenProforma;
+use App\Models\Cliente;
 use App\Models\Proforma;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -14,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 final class CrearProforma
 {
+    public const MENSAJE_CLIENTE_INACTIVO = 'No se pueden crear proformas para un cliente inactivo. Cámbialo a Prospecto o Activo primero.';
+
     public function __construct(
         private readonly GenerarNumeroProforma $numeros,
         private readonly ConstruirLineasProforma $lineas,
@@ -26,6 +30,14 @@ final class CrearProforma
     public function ejecutar(array $datos, User $usuario): Proforma
     {
         return DB::transaction(function () use ($datos, $usuario) {
+            $cliente = Cliente::query()->find($datos['cliente_id']);
+
+            if ($cliente?->estado === EstadoCliente::Inactivo) {
+                throw ValidationException::withMessages([
+                    'cliente_id' => self::MENSAJE_CLIENTE_INACTIVO,
+                ]);
+            }
+
             $calculado = $this->lineas->ejecutar($datos['items']);
             $totales = $this->totales->ejecutar(
                 $calculado['subtotal'],

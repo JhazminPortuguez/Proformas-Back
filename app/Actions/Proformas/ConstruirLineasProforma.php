@@ -12,12 +12,23 @@ use Illuminate\Validation\ValidationException;
 
 final class ConstruirLineasProforma
 {
+    /** @var list<int> */
+    private array $productosPermitidos = [];
+
+    /** @var list<int> */
+    private array $serviciosPermitidos = [];
+
     /**
      * @param  array<int, array<string, mixed>>  $items
+     * @param  array<int, int|string>  $productosPermitidos  Productos que se aceptan aunque estén inactivos (ya estaban en la proforma).
+     * @param  array<int, int|string>  $serviciosPermitidos  Servicios que se aceptan aunque estén inactivos (ya estaban en la proforma).
      * @return array{lineas: array<int, array<string, mixed>>, subtotal: string}
      */
-    public function ejecutar(array $items): array
+    public function ejecutar(array $items, array $productosPermitidos = [], array $serviciosPermitidos = []): array
     {
+        $this->productosPermitidos = array_map('intval', $productosPermitidos);
+        $this->serviciosPermitidos = array_map('intval', $serviciosPermitidos);
+
         $tipos = [];
         $productoIds = [];
         $servicioIds = [];
@@ -92,7 +103,7 @@ final class ConstruirLineasProforma
             ]);
         }
 
-        if (! $producto->activo) {
+        if (! $producto->activo && ! in_array($producto->id, $this->productosPermitidos, true)) {
             throw ValidationException::withMessages([
                 "items.$indice.producto_id" => 'El producto seleccionado no está activo.',
             ]);
@@ -126,7 +137,7 @@ final class ConstruirLineasProforma
             ]);
         }
 
-        if (! $servicio->activo) {
+        if (! $servicio->activo && ! in_array($servicio->id, $this->serviciosPermitidos, true)) {
             throw ValidationException::withMessages([
                 "items.$indice.servicio_id" => 'El servicio seleccionado no está activo.',
             ]);

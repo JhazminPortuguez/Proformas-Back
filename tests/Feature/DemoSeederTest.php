@@ -14,6 +14,7 @@ use App\Models\Proforma;
 use App\Models\ProformaItem;
 use App\Models\Servicio;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,32 @@ use Tests\TestCase;
 class DemoSeederTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * El seeder corre a cualquier hora: de madrugada en Bolivia el día UTC
+     * es otro, y el pago demo no puede quedar antes de la emisión de la cuenta.
+     */
+    public function test_demo_seeder_corre_de_madrugada_en_bolivia(): void
+    {
+        $this->sembrarA('2026-11-09 00:30:00');
+    }
+
+    public function test_demo_seeder_corre_de_noche_en_bolivia(): void
+    {
+        $this->sembrarA('2026-11-08 21:00:00');
+    }
+
+    private function sembrarA(string $momentoBolivia): void
+    {
+        $this->travelTo(CarbonImmutable::parse($momentoBolivia, 'America/La_Paz'));
+
+        $this->seed(DemoSeeder::class);
+
+        $this->assertSame(
+            CuentaPorCobrar::query()->sole()->fecha_emision->toDateString(),
+            PagoCuenta::query()->sole()->fecha_pago->toDateString(),
+        );
+    }
 
     public function test_demo_seeder_es_idempotente_y_completo(): void
     {

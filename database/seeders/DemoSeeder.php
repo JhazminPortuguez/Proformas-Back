@@ -592,7 +592,9 @@ class DemoSeeder extends Seeder
         app(RegistrarPagoCuenta::class)->ejecutar($cuenta, [
             'monto' => $monto,
             'metodo' => MetodoPago::Transferencia->value,
-            'fecha_pago' => Carbon::now()->subHours(6)->toDateString(),
+            // El mismo día de la emisión: un pago no puede ser anterior a la
+            // cuenta ni futuro (hora de Bolivia), a cualquier hora que corra.
+            'fecha_pago' => $cuenta->fecha_emision->toDateString(),
             'referencia' => 'DEMO-CXC-001',
             'observaciones' => 'Pago parcial demo.',
         ], $admin);

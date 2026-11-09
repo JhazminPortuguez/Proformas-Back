@@ -20,7 +20,11 @@ final class EliminarUsuario
 
     public function ejecutar(User $usuario): void
     {
-        if ($usuario->rol === Rol::Admin && User::query()->where('rol', Rol::Admin)->count() <= 1) {
+        if (
+            $usuario->rol === Rol::Admin
+            && $usuario->activo
+            && User::query()->where('rol', Rol::Admin)->where('activo', true)->count() <= 1
+        ) {
             throw ValidationException::withMessages([
                 'rol' => 'No se puede eliminar al último administrador.',
             ]);

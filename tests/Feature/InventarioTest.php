@@ -9,6 +9,7 @@ use App\Models\OrdenItem;
 use App\Models\OrdenServicio;
 use App\Models\Producto;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -303,6 +304,29 @@ class InventarioTest extends TestCase
             ->assertJsonPath('bajo_stock', 1)
             ->assertJsonPath('valor_inventario', 230)
             ->assertJsonPath('movimientos_mes', 1);
+    }
+
+    public function test_filtro_de_fechas_de_movimientos_usa_el_dia_de_bolivia(): void
+    {
+        $admin = $this->admin();
+        $producto = Producto::factory()->create(['stock_actual' => 10, 'costo_promedio' => 5]);
+
+        // 21:00 del 8/11 en Bolivia = 01:00 del 9/11 en UTC.
+        $this->travelTo(CarbonImmutable::parse('2026-11-08 21:00:00', 'America/La_Paz'));
+
+        $this->actingAs($admin)->postJson('/api/v1/inventario/entradas', [
+            'producto_id' => $producto->id,
+            'cantidad' => 1,
+            'motivo' => 'Compra de la noche',
+        ])->assertCreated();
+
+        $this->actingAs($admin)->getJson('/api/v1/inventario/movimientos?desde=2026-11-08&hasta=2026-11-08')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->actingAs($admin)->getJson('/api/v1/inventario/movimientos?desde=2026-11-09&hasta=2026-11-09')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_movimientos_filtra_por_producto_tipo_texto_y_fechas(): void

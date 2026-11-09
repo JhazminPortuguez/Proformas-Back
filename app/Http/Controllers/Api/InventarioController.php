@@ -15,6 +15,7 @@ use App\Models\MovimientoInventario;
 use App\Models\Producto;
 use App\Support\Busqueda;
 use App\Support\Dinero;
+use App\Support\FechaBolivia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -106,8 +107,9 @@ class InventarioController extends Controller
             ->when($filtros['producto_id'] ?? null, fn ($query, $productoId) => $query->where('producto_id', $productoId))
             ->when($filtros['tipo'] ?? null, fn ($query, $tipo) => $query->where('tipo', $tipo))
             ->when($filtros['orden_id'] ?? null, fn ($query, $ordenId) => $query->where('orden_id', $ordenId))
-            ->when($filtros['desde'] ?? null, fn ($query, $desde) => $query->where('created_at', '>=', Carbon::parse($desde)->startOfDay()))
-            ->when($filtros['hasta'] ?? null, fn ($query, $hasta) => $query->where('created_at', '<=', Carbon::parse($hasta)->endOfDay()))
+            // Los días del filtro son de Bolivia; created_at se guarda en UTC.
+            ->when($filtros['desde'] ?? null, fn ($query, $desde) => $query->where('created_at', '>=', Carbon::parse($desde, FechaBolivia::ZONA_HORARIA)->startOfDay()->setTimezone(config('app.timezone'))))
+            ->when($filtros['hasta'] ?? null, fn ($query, $hasta) => $query->where('created_at', '<=', Carbon::parse($hasta, FechaBolivia::ZONA_HORARIA)->endOfDay()->setTimezone(config('app.timezone'))))
             ->orderByDesc('id')
             ->paginate($filtros['per_page'] ?? 15)
             ->withQueryString();

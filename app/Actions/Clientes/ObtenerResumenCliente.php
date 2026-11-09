@@ -14,7 +14,7 @@ use App\Models\OrdenServicio;
 use App\Models\PagoCuenta;
 use App\Models\Proforma;
 use App\Support\Dinero;
-use Carbon\CarbonImmutable;
+use App\Support\FechaBolivia;
 
 /**
  * Agrega el historial comercial y operativo de un cliente.
@@ -123,7 +123,7 @@ final class ObtenerResumenCliente
         $vencidas = CuentaPorCobrar::query()
             ->where('cliente_id', $cliente->getKey())
             ->where('saldo', '>', 0)
-            ->whereDate('fecha_vencimiento', '<', CarbonImmutable::today()->toDateString())
+            ->whereDate('fecha_vencimiento', '<', FechaBolivia::hoyTexto())
             ->count();
 
         $totalPagado = PagoCuenta::query()

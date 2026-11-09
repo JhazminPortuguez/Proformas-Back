@@ -13,6 +13,7 @@ use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\Servicio;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -118,6 +119,19 @@ class OrdenServicioTest extends TestCase
         }
 
         $this->assertDatabaseCount('ordenes_servicio', 0);
+    }
+
+    public function test_el_numero_de_orden_usa_el_anio_de_bolivia(): void
+    {
+        // 31/12/2026 a las 21:00 en Bolivia: en UTC ya es 2027.
+        $this->travelTo(CarbonImmutable::parse('2026-12-31 21:00:00', 'America/La_Paz'));
+
+        $admin = $this->admin();
+        $proforma = $this->proformaAceptada($admin);
+
+        $this->crearOrden($admin, $proforma)
+            ->assertCreated()
+            ->assertJsonPath('numero', 'OS-2026-000001');
     }
 
     public function test_no_duplica_orden_vigente_y_permite_crear_otra_si_la_anterior_fue_cancelada(): void

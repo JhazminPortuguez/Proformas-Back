@@ -58,6 +58,8 @@ final class ReporteCobros
             'cuentas' => array_map(fn (array $fila): array => [
                 'id' => $fila['cuenta']->id,
                 'numero' => $fila['cuenta']->numero,
+                'concepto' => $fila['cuenta']->concepto?->value ?? 'SERVICIO',
+                'concepto_etiqueta' => $fila['cuenta']->concepto?->etiqueta() ?? 'Servicio',
                 'cliente' => [
                     'nombre_razon' => $fila['cuenta']->cliente?->nombre_razon,
                     'nit_ci' => $fila['cuenta']->cliente?->nit_ci,
@@ -78,9 +80,10 @@ final class ReporteCobros
     public function detalle(?int $clienteId = null): array
     {
         return [
-            'encabezados' => ['Número', 'Cliente', 'NIT/CI', 'Vencimiento', 'Días vencida', 'Saldo (Bs)', 'Antigüedad'],
+            'encabezados' => ['Número', 'Concepto', 'Cliente', 'NIT/CI', 'Vencimiento', 'Días vencida', 'Saldo (Bs)', 'Antigüedad'],
             'filas' => array_map(fn (array $fila): array => [
                 $fila['cuenta']->numero,
+                $fila['cuenta']->concepto?->etiqueta() ?? 'Servicio',
                 $fila['cuenta']->cliente?->nombre_razon,
                 $fila['cuenta']->cliente?->nit_ci,
                 $fila['cuenta']->fecha_vencimiento?->toDateString(),
@@ -103,7 +106,7 @@ final class ReporteCobros
             ->when($clienteId, fn (Builder $query, int $id) => $query->where('cliente_id', $id))
             ->with('cliente:id,nombre_razon,nit_ci')
             ->orderBy('numero')
-            ->get(['id', 'numero', 'cliente_id', 'fecha_vencimiento', 'saldo']);
+            ->get(['id', 'numero', 'concepto', 'cliente_id', 'fecha_vencimiento', 'saldo']);
 
         $resultado = $this->antiguedad->ejecutar($cuentas, PeriodoReporte::hoy());
 
