@@ -54,8 +54,10 @@ final class ObtenerResumenDashboard
         $finMesTimestamp = $hoy->endOfMonth()->endOfDay();
 
         $porEstadoProforma = $this->contarProformasPorEstado();
+        // "En espera de respuesta": solo las enviadas al cliente; los
+        // borradores todavía no se le mandaron.
         $montoCotizadoMes = $this->sumarProformas(
-            [EstadoProforma::Borrador, EstadoProforma::Enviada],
+            [EstadoProforma::Enviada],
             $inicioMes,
             $finMes,
         );
