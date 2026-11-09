@@ -324,7 +324,7 @@ Disponible para `admin` y `operario`.
 
 - `clientes`, `servicios`, `proformas`: totales de la empresa actual.
 - `proformas_por_estado`: siempre incluye los cuatro estados, con `0` cuando no hay registros.
-- `monto_proformas_mes`: alias legacy de `monto_cotizado_mes` (`BORRADOR + ENVIADA` del mes).
+- `monto_proformas_mes`: alias legacy de `monto_cotizado_mes`: proformas `ENVIADA` del mes por `fecha_emision` (en espera de respuesta; no cuenta borradores).
 - `monto_aceptado_mes`: proformas `ACEPTADA` del mes por `fecha_emision`.
 - `ordenes_pendientes`: alias legacy de `ordenes.activas` (`PENDIENTE + ASIGNADA + EN_PROCESO`).
 - `ordenes.por_estado`: siempre incluye los cinco estados; `finalizadas_mes` usa `fecha_fin` y `cerradas_mes` usa `cerrada_at`.

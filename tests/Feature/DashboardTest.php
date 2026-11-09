@@ -116,9 +116,9 @@ class DashboardTest extends TestCase
             ->assertJsonPath('proformas_por_estado.ENVIADA', 1)
             ->assertJsonPath('proformas_por_estado.ACEPTADA', 1)
             ->assertJsonPath('proformas_por_estado.RECHAZADA', 1)
-            // No incluye borradores rechazados; cotizado = BORRADOR + ENVIADA.
-            ->assertJsonPath('monto_proformas_mes', 150.75)
-            ->assertJsonPath('monto_cotizado_mes', 150.75)
+            // En espera de respuesta = solo ENVIADA: sin borradores ni rechazadas.
+            ->assertJsonPath('monto_proformas_mes', 50.25)
+            ->assertJsonPath('monto_cotizado_mes', 50.25)
             ->assertJsonPath('monto_aceptado_mes', 200)
             ->assertJsonPath('ordenes_pendientes', 0)
             ->assertJsonPath('saldo_por_cobrar', 0)
@@ -144,6 +144,38 @@ class DashboardTest extends TestCase
             ->assertJsonPath('servicios_mas_solicitados', []);
 
         $this->assertCount(5, $response->json('actividad_reciente'));
+    }
+
+    public function test_en_espera_de_respuesta_no_cuenta_borradores_hasta_que_se_envian(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $cliente = Cliente::factory()->create();
+
+        $borrador = Proforma::factory()->create([
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => now()->toDateString(),
+            'estado' => EstadoProforma::Borrador,
+            'total' => 300,
+        ]);
+        Proforma::factory()->create([
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => now()->toDateString(),
+            'estado' => EstadoProforma::Borrador,
+            'total' => 45.5,
+        ]);
+
+        $this->actingAs($admin)->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('proformas_por_estado.BORRADOR', 2)
+            ->assertJsonPath('monto_cotizado_mes', 0)
+            ->assertJsonPath('monto_proformas_mes', 0);
+
+        $borrador->update(['estado' => EstadoProforma::Enviada]);
+
+        $this->actingAs($admin)->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('monto_cotizado_mes', 300)
+            ->assertJsonPath('monto_proformas_mes', 300);
     }
 
     public function test_operario_accede_al_dashboard_y_el_entorno_vacio_devuelve_ceros(): void
