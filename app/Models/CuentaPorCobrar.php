@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ConceptoCuenta;
 use App\Enums\EstadoCobro;
 use App\Models\Concerns\PerteneceAEmpresa;
 use App\Support\Dinero;
+use App\Support\FechaBolivia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +24,7 @@ class CuentaPorCobrar extends Model
         'empresa_id',
         'orden_id',
         'cliente_id',
+        'concepto',
         'numero',
         'fecha_emision',
         'fecha_vencimiento',
@@ -42,6 +45,7 @@ class CuentaPorCobrar extends Model
             'monto_total' => 'decimal:2',
             'saldo' => 'decimal:2',
             'estado_cobro' => EstadoCobro::class,
+            'concepto' => ConceptoCuenta::class,
         ];
     }
 
@@ -105,7 +109,7 @@ class CuentaPorCobrar extends Model
             return false;
         }
 
-        return $this->fecha_vencimiento->toDateString() < today()->toDateString();
+        return $this->fecha_vencimiento->toDateString() < FechaBolivia::hoyTexto();
     }
 
     public function diasVencida(): int
@@ -114,7 +118,8 @@ class CuentaPorCobrar extends Model
             return 0;
         }
 
-        return (int) $this->fecha_vencimiento->startOfDay()->diffInDays(today(), true);
+        return (int) $this->fecha_vencimiento->copy()->startOfDay()
+            ->diffInDays(FechaBolivia::hoy()->setTimezone($this->fecha_vencimiento->getTimezone()), true);
     }
 
     /**

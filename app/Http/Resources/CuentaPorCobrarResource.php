@@ -20,6 +20,8 @@ class CuentaPorCobrarResource extends JsonResource
             'orden_id' => $this->orden_id,
             'cliente_id' => $this->cliente_id,
             'numero' => $this->numero,
+            'concepto' => $this->concepto?->value ?? 'SERVICIO',
+            'concepto_etiqueta' => $this->concepto?->etiqueta() ?? 'Servicio',
             'fecha_emision' => $this->fecha_emision?->toDateString(),
             'fecha_vencimiento' => $this->fecha_vencimiento?->toDateString(),
             'moneda' => $this->moneda,

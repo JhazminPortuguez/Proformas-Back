@@ -148,7 +148,13 @@ class OrdenServicioController extends Controller
         $this->authorize('cancelar', $orden);
 
         return new OrdenResource(
-            $cancelar->ejecutar($orden, (string) $request->validated('motivo'), $request->user())
+            $cancelar->ejecutar(
+                $orden,
+                (string) $request->validated('motivo'),
+                $request->user(),
+                $request->validated('devoluciones', []),
+                $request->boolean('cobrar_materiales'),
+            )
         );
     }
 

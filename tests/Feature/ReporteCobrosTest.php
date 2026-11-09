@@ -45,7 +45,8 @@ class ReporteCobrosTest extends TestCase
         $cuenta(4, $clienteA, '400.40', '2026-10-16');              // 30 días
         $c5 = $cuenta(5, $this->clienteB, '500.50', '2026-10-15');  // 31 días
         $cuenta(6, $clienteA, '600.60', '2026-08-17');              // 90 días
-        $cuenta(7, $this->clienteB, '700.70', '2026-08-16');        // 91 días
+        $cuenta(7, $this->clienteB, '700.70', '2026-08-16')         // 91 días
+            ->update(['concepto' => 'CANCELACION']);                // cobro por cancelación
         $cuenta(8, $clienteA, '0.00', '2026-08-01');                // pagada: no cuenta
 
         $pago = fn (CuentaPorCobrar $cuenta, string $monto, string $fecha, bool $anulado = false) => PagoCuenta::factory()
@@ -81,6 +82,8 @@ class ReporteCobrosTest extends TestCase
             ->assertJsonPath('cuentas.0', [
                 'id' => CuentaPorCobrar::query()->where('numero', 'CXC-2026-000007')->value('id'),
                 'numero' => 'CXC-2026-000007',
+                'concepto' => 'CANCELACION',
+                'concepto_etiqueta' => 'Cancelación',
                 'cliente' => ['nombre_razon' => 'Hotel Illimani', 'nit_ci' => '222'],
                 'fecha_vencimiento' => '2026-08-16',
                 'dias_vencida' => 91,
@@ -144,9 +147,9 @@ class ReporteCobrosTest extends TestCase
 
         $lineas = preg_split('/\r?\n/', trim(ltrim($response->streamedContent(), "\xEF\xBB\xBF")));
 
-        $this->assertSame('Número;Cliente;NIT/CI;Vencimiento;"Días vencida";"Saldo (Bs)";Antigüedad', $lineas[0]);
+        $this->assertSame('Número;Concepto;Cliente;NIT/CI;Vencimiento;"Días vencida";"Saldo (Bs)";Antigüedad', $lineas[0]);
         $this->assertCount(8, $lineas);
-        $this->assertSame('CXC-2026-000007;"Hotel Illimani";222;2026-08-16;91;700,70;"Más de 90 días"', $lineas[1]);
-        $this->assertSame('CXC-2026-000002;"Constructora Andina";111;2026-11-15;0;200,20;"Al día"', $lineas[7]);
+        $this->assertSame('CXC-2026-000007;Cancelación;"Hotel Illimani";222;2026-08-16;91;700,70;"Más de 90 días"', $lineas[1]);
+        $this->assertSame('CXC-2026-000002;Servicio;"Constructora Andina";111;2026-11-15;0;200,20;"Al día"', $lineas[7]);
     }
 }

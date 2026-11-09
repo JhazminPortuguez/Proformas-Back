@@ -11,6 +11,9 @@ enum TipoMovimientoInventario: string
     case Ajuste = 'AJUSTE';
     case Consumo = 'CONSUMO';
 
+    /** Material consumido que vuelve al stock al cancelar una orden. */
+    case Devolucion = 'DEVOLUCION';
+
     public function etiqueta(): string
     {
         return match ($this) {
@@ -18,6 +21,7 @@ enum TipoMovimientoInventario: string
             self::Salida => 'Salida',
             self::Ajuste => 'Ajuste',
             self::Consumo => 'Consumo',
+            self::Devolucion => 'Devolución',
         };
     }
 
@@ -28,7 +32,7 @@ enum TipoMovimientoInventario: string
     public function signo(): int
     {
         return match ($this) {
-            self::Entrada => 1,
+            self::Entrada, self::Devolucion => 1,
             self::Salida, self::Consumo => -1,
             self::Ajuste => 0,
         };

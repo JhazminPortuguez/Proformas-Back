@@ -12,6 +12,7 @@ use App\Models\CuentaPorCobrar;
 use App\Models\PagoCuenta;
 use App\Support\Busqueda;
 use App\Support\Dinero;
+use App\Support\FechaBolivia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -54,7 +55,7 @@ class CuentaPorCobrarController extends Controller
             ->when($filtros['estado_cobro'] ?? null, fn ($query, $estado) => $query->where('estado_cobro', $estado))
             ->when($request->boolean('vencida'), function ($query): void {
                 $query->where('saldo', '>', 0)
-                    ->whereDate('fecha_vencimiento', '<', today()->toDateString());
+                    ->whereDate('fecha_vencimiento', '<', FechaBolivia::hoyTexto());
             })
             ->when($filtros['cliente_id'] ?? null, fn ($query, $clienteId) => $query->where('cliente_id', $clienteId))
             ->when($filtros['desde'] ?? null, fn ($query, $desde) => $query->whereDate('fecha_emision', '>=', Carbon::parse($desde)->toDateString()))
@@ -86,7 +87,7 @@ class CuentaPorCobrarController extends Controller
             'pendientes' => CuentaPorCobrar::query()->where('saldo', '>', 0)->count(),
             'vencidas' => CuentaPorCobrar::query()
                 ->where('saldo', '>', 0)
-                ->whereDate('fecha_vencimiento', '<', today()->toDateString())
+                ->whereDate('fecha_vencimiento', '<', FechaBolivia::hoyTexto())
                 ->count(),
             'saldo' => (float) Dinero::redondear(
                 (string) (CuentaPorCobrar::query()->sum('saldo') ?? 0)

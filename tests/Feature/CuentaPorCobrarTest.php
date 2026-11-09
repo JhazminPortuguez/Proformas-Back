@@ -15,6 +15,8 @@ use App\Models\Proforma;
 use App\Models\Servicio;
 use App\Models\User;
 use App\Support\Dinero;
+use App\Support\FechaBolivia;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -188,7 +190,7 @@ class CuentaPorCobrarTest extends TestCase
             ->assertJsonPath('pagos.0.anulado', false)
             ->assertJsonPath('pagos.0.puede_anular', true);
 
-        $this->assertSame($parcial->json('pagos.0.fecha_pago'), today()->toDateString());
+        $this->assertSame($parcial->json('pagos.0.fecha_pago'), FechaBolivia::hoyTexto());
 
         $completo = $this->actingAs($admin)->postJson("/api/v1/cuentas-por-cobrar/{$cuentaId}/pagos", [
             'monto' => 250,
@@ -208,6 +210,82 @@ class CuentaPorCobrarTest extends TestCase
             'estado_cobro' => 'PAGADA',
             'updated_by' => $admin->id,
         ]);
+    }
+
+    public function test_fecha_de_pago_no_puede_ser_futura_ni_anterior_a_la_emision_en_hora_de_bolivia(): void
+    {
+        // 22:30 del 8 de noviembre en Bolivia = 02:30 del 9 de noviembre en UTC.
+        $this->travelTo(CarbonImmutable::parse('2026-11-08 22:30:00', 'America/La_Paz'));
+
+        $admin = $this->admin();
+        [, $cierre] = $this->cerrarOrden($admin);
+        $cuentaId = $cierre->json('cuenta.id');
+
+        // La cuenta se emite el día de Bolivia del cierre, no el día UTC.
+        $this->actingAs($admin)->getJson("/api/v1/cuentas-por-cobrar/{$cuentaId}")
+            ->assertOk()
+            ->assertJsonPath('fecha_emision', '2026-11-08')
+            ->assertJsonPath('fecha_vencimiento', '2026-12-08');
+
+        $this->actingAs($admin)->postJson("/api/v1/cuentas-por-cobrar/{$cuentaId}/pagos", [
+            'monto' => 10,
+            'metodo' => 'EFECTIVO',
+            'fecha_pago' => '2026-11-09',
+        ])->assertStatus(422)
+            ->assertJsonPath('errors.fecha_pago.0', 'La fecha de pago no puede ser futura (hoy es 08/11/2026).');
+
+        $this->actingAs($admin)->postJson("/api/v1/cuentas-por-cobrar/{$cuentaId}/pagos", [
+            'monto' => 10,
+            'metodo' => 'EFECTIVO',
+            'fecha_pago' => '2026-11-07',
+        ])->assertStatus(422)
+            ->assertJsonPath('errors.fecha_pago.0', 'La fecha de pago no puede ser anterior a la emisión de la cuenta (08/11/2026).');
+
+        $this->actingAs($admin)->postJson("/api/v1/cuentas-por-cobrar/{$cuentaId}/pagos", [
+            'monto' => 10,
+            'metodo' => 'EFECTIVO',
+            'fecha_pago' => '08/11/2026',
+        ])->assertStatus(422)->assertJsonValidationErrors('fecha_pago');
+
+        $this->assertSame(0, PagoCuenta::query()->where('cuenta_id', $cuentaId)->count());
+
+        // El mismo día de la emisión se acepta, y sin fecha se usa hoy en Bolivia.
+        $this->actingAs($admin)->postJson("/api/v1/cuentas-por-cobrar/{$cuentaId}/pagos", [
+            'monto' => 10,
+            'metodo' => 'EFECTIVO',
+            'fecha_pago' => '2026-11-08',
+        ])->assertCreated();
+
+        $this->actingAs($admin)->postJson("/api/v1/cuentas-por-cobrar/{$cuentaId}/pagos", [
+            'monto' => 10,
+            'metodo' => 'QR',
+        ])->assertCreated()
+            ->assertJsonPath('pagos.0.fecha_pago', '2026-11-08');
+    }
+
+    public function test_cuenta_vencida_se_calcula_con_el_dia_de_bolivia(): void
+    {
+        $admin = $this->admin();
+        [, $cierre] = $this->cerrarOrden($admin);
+        $cuenta = CuentaPorCobrar::query()->findOrFail($cierre->json('cuenta.id'));
+        $cuenta->update(['fecha_emision' => '2026-10-01', 'fecha_vencimiento' => '2026-11-08']);
+
+        // 22:30 del 8/11 en Bolivia: en UTC ya es 9/11, pero la cuenta vence hoy.
+        $this->travelTo(CarbonImmutable::parse('2026-11-08 22:30:00', 'America/La_Paz'));
+
+        $this->assertFalse($cuenta->fresh()->estaVencida());
+        $this->actingAs($admin)->getJson('/api/v1/cuentas-por-cobrar?vencida=1')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        // A la medianoche de Bolivia ya está vencida.
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 00:30:00', 'America/La_Paz'));
+
+        $this->assertTrue($cuenta->fresh()->estaVencida());
+        $this->assertSame(1, $cuenta->fresh()->diasVencida());
+        $this->actingAs($admin)->getJson('/api/v1/cuentas-por-cobrar?vencida=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
     }
 
     public function test_rechaza_sobrepago_montos_invalidos_metodo_invalido_y_pago_en_cuenta_pagada(): void
@@ -518,6 +596,19 @@ class CuentaPorCobrarTest extends TestCase
         DB::table('cuentas_por_cobrar')
             ->where('id', $cuenta->id)
             ->update(['estado_cobro' => 'INVALIDO']);
+    }
+
+    public function test_postgres_rechaza_concepto_invalido_y_acepta_cancelacion(): void
+    {
+        $this->soloPostgres();
+
+        $cuenta = CuentaPorCobrar::factory()->create();
+
+        DB::table('cuentas_por_cobrar')->where('id', $cuenta->id)->update(['concepto' => 'CANCELACION']);
+        $this->assertSame('CANCELACION', DB::table('cuentas_por_cobrar')->where('id', $cuenta->id)->value('concepto'));
+
+        $this->expectException(QueryException::class);
+        DB::table('cuentas_por_cobrar')->where('id', $cuenta->id)->update(['concepto' => 'OTRO']);
     }
 
     public function test_postgres_rechaza_saldo_mayor_al_monto_total(): void

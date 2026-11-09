@@ -73,20 +73,22 @@ final class ReporteInventario
     private function consumo(PeriodoReporte $periodo, ?int $clienteId, ?int $operarioId): array
     {
         $movimientos = MovimientoInventario::query()
-            ->where('tipo', TipoMovimientoInventario::Consumo->value)
+            ->whereIn('tipo', [TipoMovimientoInventario::Consumo->value, TipoMovimientoInventario::Devolucion->value])
             ->whereBetween('created_at', [$periodo->inicio(), $periodo->fin()])
             ->when($clienteId || $operarioId, fn (Builder $query) => $query->whereHas('orden', fn (Builder $orden) => $orden
                 ->when($clienteId, fn (Builder $orden, int $id) => $orden->where('cliente_id', $id))
                 ->when($operarioId, fn (Builder $orden, int $id) => $orden->where('operario_id', $id))))
             ->with('producto:id,nombre,unidad_medida')
-            ->get(['id', 'producto_id', 'cantidad', 'costo_unitario']);
+            ->get(['id', 'producto_id', 'tipo', 'cantidad', 'costo_unitario']);
 
         $productos = [];
 
         foreach ($movimientos as $movimiento) {
             $id = (int) $movimiento->producto_id;
-            // El consumo se guarda como salida (cantidad negativa).
-            $cantidad = ltrim(Dinero::cantidad($movimiento->cantidad), '-');
+            // El consumo se guarda como salida (cantidad negativa) y la
+            // devolución de una orden cancelada como entrada: el neto es lo
+            // que de verdad se usó.
+            $cantidad = Dinero::cantidad(bcsub('0', Dinero::cantidad($movimiento->cantidad), Dinero::ESCALA_CANTIDAD));
 
             $productos[$id] ??= [
                 'producto_id' => $id,
@@ -105,12 +107,20 @@ final class ReporteInventario
             );
         }
 
-        $productos = array_values($productos);
+        // Un material que se devolvió entero no se usó.
+        $productos = array_values(array_filter(
+            $productos,
+            fn (array $producto): bool => Dinero::comparar($producto['cantidad_exacta'], 0) > 0,
+        ));
 
         usort($productos, fn (array $a, array $b): int => Dinero::comparar($b['costo_exacto'], $a['costo_exacto'])
             ?: strcmp(mb_strtolower((string) $a['nombre']), mb_strtolower((string) $b['nombre'])));
 
-        return ['movimientos' => $movimientos->count(), 'productos' => $productos];
+        $consumos = $movimientos->filter(
+            fn (MovimientoInventario $movimiento): bool => $movimiento->tipo === TipoMovimientoInventario::Consumo,
+        );
+
+        return ['movimientos' => $consumos->count(), 'productos' => $productos];
     }
 
     /**

@@ -20,6 +20,7 @@ use App\Models\Proforma;
 use App\Models\Servicio;
 use App\Models\User;
 use App\Support\Dinero;
+use App\Support\FechaBolivia;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -34,9 +35,6 @@ final class ObtenerResumenDashboard
     /** Máximo de órdenes que se listan en "trabajos programados para hoy". */
     public const TRABAJOS_HOY_LIMITE = 10;
 
-    /** Las fechas programadas se interpretan en la hora de Bolivia. */
-    private const ZONA_HORARIA = 'America/La_Paz';
-
     public function __construct(
         private readonly CalcularAntiguedadSaldos $antiguedad = new CalcularAntiguedadSaldos,
     ) {}
@@ -47,11 +45,12 @@ final class ObtenerResumenDashboard
      */
     public function ejecutar(?User $usuario = null): array
     {
-        $hoy = CarbonImmutable::today();
+        // El mes y "hoy" son los de Bolivia; los timestamps se comparan en UTC.
+        $hoy = FechaBolivia::hoy();
         $inicioMes = $hoy->startOfMonth()->toDateString();
         $finMes = $hoy->endOfMonth()->toDateString();
-        $inicioMesTimestamp = $hoy->startOfMonth()->startOfDay();
-        $finMesTimestamp = $hoy->endOfMonth()->endOfDay();
+        $inicioMesTimestamp = $hoy->startOfMonth()->startOfDay()->setTimezone(config('app.timezone'));
+        $finMesTimestamp = $hoy->endOfMonth()->endOfDay()->setTimezone(config('app.timezone'));
 
         $porEstadoProforma = $this->contarProformasPorEstado();
         // "En espera de respuesta": solo las enviadas al cliente; los
@@ -101,7 +100,7 @@ final class ObtenerResumenDashboard
      */
     private function trabajosHoy(?User $usuario): array
     {
-        $hoy = CarbonImmutable::now(self::ZONA_HORARIA)->toDateString();
+        $hoy = FechaBolivia::hoyTexto();
 
         $query = OrdenServicio::query()
             ->activas()

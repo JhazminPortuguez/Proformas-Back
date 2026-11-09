@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Proformas;
 
+use App\Enums\EstadoCliente;
+use App\Models\Cliente;
 use App\Models\Proforma;
 use App\Models\User;
 use App\Support\Dinero;
@@ -47,6 +49,18 @@ final class ActualizarProforma
                 ]);
             }
 
+            // Un borrador de un cliente que luego se desactivó se puede seguir
+            // editando, pero no se puede pasar a otro cliente inactivo.
+            if (
+                array_key_exists('cliente_id', $datos)
+                && (int) $datos['cliente_id'] !== (int) $actual->cliente_id
+                && Cliente::query()->find($datos['cliente_id'])?->estado === EstadoCliente::Inactivo
+            ) {
+                throw ValidationException::withMessages([
+                    'cliente_id' => 'No se puede pasar la proforma a un cliente inactivo.',
+                ]);
+            }
+
             $cambios = [];
 
             foreach (['cliente_id', 'fecha_emision', 'fecha_validez', 'observaciones', 'moneda'] as $campo) {
@@ -69,7 +83,13 @@ final class ActualizarProforma
             }
 
             if (array_key_exists('items', $datos)) {
-                $calculado = $this->lineas->ejecutar($datos['items']);
+                // Las líneas que ya tenía la proforma conservan su servicio o
+                // producto aunque se haya desactivado; los nuevos deben estar activos.
+                $calculado = $this->lineas->ejecutar(
+                    $datos['items'],
+                    productosPermitidos: $actual->items()->whereNotNull('producto_id')->pluck('producto_id')->all(),
+                    serviciosPermitidos: $actual->items()->whereNotNull('servicio_id')->pluck('servicio_id')->all(),
+                );
                 $actual->items()->delete();
                 $actual->items()->createMany($calculado['lineas']);
                 $subtotal = $calculado['subtotal'];

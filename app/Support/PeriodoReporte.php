@@ -47,7 +47,7 @@ final class PeriodoReporte
 
     public static function hoy(): CarbonImmutable
     {
-        return CarbonImmutable::now(self::ZONA_HORARIA)->startOfDay();
+        return FechaBolivia::hoy();
     }
 
     /** Primer día del periodo (YYYY-MM-DD). */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\CuentasPorCobrar;
 
+use App\Enums\ConceptoCuenta;
 use App\Enums\EstadoCobro;
 use App\Enums\EstadoOrden;
 use App\Models\CuentaPorCobrar;
@@ -11,6 +12,8 @@ use App\Models\OrdenServicio;
 use App\Models\Proforma;
 use App\Models\User;
 use App\Support\Dinero;
+use App\Support\FechaBolivia;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -47,14 +50,17 @@ final class GenerarCuentaPorCobrar
             // aceptada y los ítems de la orden ya no se pueden modificar.
             $proforma = Proforma::query()->findOrFail($actual->proforma_id);
             $montoTotal = Dinero::redondear($proforma->total);
-            $fechaEmision = $actual->cerrada_at->toDateString();
-            $fechaVencimiento = $actual->cerrada_at->copy()->addDays(30)->toDateString();
+            // Día de Bolivia del cierre: una orden cerrada a las 21:00 no
+            // debe emitir la cuenta con la fecha UTC del día siguiente.
+            $fechaEmision = FechaBolivia::dia($actual->cerrada_at);
+            $fechaVencimiento = CarbonImmutable::parse($fechaEmision)->addDays(30)->toDateString();
 
             $cuenta = CuentaPorCobrar::create([
                 'empresa_id' => $actual->empresa_id,
                 'orden_id' => $actual->getKey(),
                 'cliente_id' => $actual->cliente_id,
-                'numero' => $this->numeros->ejecutar($actual->cerrada_at),
+                'concepto' => ConceptoCuenta::Servicio,
+                'numero' => $this->numeros->ejecutar(CarbonImmutable::parse($fechaEmision)),
                 'fecha_emision' => $fechaEmision,
                 'fecha_vencimiento' => $fechaVencimiento,
                 'moneda' => $proforma->moneda,

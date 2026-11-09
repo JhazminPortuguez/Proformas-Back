@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\EstadoCliente;
+use App\Enums\EstadoOrden;
 use App\Enums\Rol;
 use App\Models\Cliente;
 use App\Models\Empresa;
+use App\Models\OrdenServicio;
 use App\Models\Proforma;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +35,97 @@ class UserGuardTest extends TestCase
             ->assertStatus(422);
 
         $this->assertSame(Rol::Admin, $admin->fresh()->rol);
+    }
+
+    public function test_un_admin_inactivo_no_cuenta_como_reemplazo_del_ultimo_admin_activo(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $activo = User::factory()->create(['rol' => Rol::Admin]);
+        User::factory()->create(['rol' => Rol::Admin, 'activo' => false]);
+
+        $this->actingAs($admin)->putJson("/api/v1/users/{$activo->id}", ['activo' => false])
+            ->assertOk();
+
+        // Queda un solo admin activo ($admin): otro admin no puede quitarle el rol.
+        $this->actingAs($activo->fresh()->forceFill(['activo' => true]))
+            ->putJson("/api/v1/users/{$admin->id}", ['rol' => 'operario'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'No se puede quitar el rol ni desactivar al último administrador activo.');
+
+        $this->assertSame(Rol::Admin, $admin->fresh()->rol);
+    }
+
+    public function test_no_se_desactiva_ni_cambia_de_rol_a_un_operario_con_ordenes_activas(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $operario = User::factory()->create(['rol' => Rol::Operario, 'name' => 'Rosa Quispe']);
+
+        OrdenServicio::factory()->create([
+            'numero' => 'OS-2026-000012',
+            'operario_id' => $operario->id,
+            'estado' => EstadoOrden::EnProceso,
+        ]);
+        OrdenServicio::factory()->create([
+            'numero' => 'OS-2026-000007',
+            'operario_id' => $operario->id,
+            'estado' => EstadoOrden::Asignada,
+        ]);
+        // Las finalizadas y canceladas no bloquean.
+        OrdenServicio::factory()->create([
+            'numero' => 'OS-2026-000003',
+            'operario_id' => $operario->id,
+            'estado' => EstadoOrden::Finalizada,
+        ]);
+
+        $this->actingAs($admin)->putJson("/api/v1/users/{$operario->id}", ['activo' => false])
+            ->assertStatus(422)
+            ->assertJsonPath(
+                'message',
+                'No se puede desactivar a Rosa Quispe porque tiene 2 órdenes asignadas o en proceso: OS-2026-000007, OS-2026-000012. Termínalas o cancélalas primero.',
+            )
+            ->assertJsonPath('ordenes', ['OS-2026-000007', 'OS-2026-000012'])
+            // También como error del campo: el front muestra los errores por campo de un 422.
+            ->assertJsonPath('errors.activo.0', fn (string $mensaje) => str_contains($mensaje, 'OS-2026-000007, OS-2026-000012'));
+
+        $this->actingAs($admin)->putJson("/api/v1/users/{$operario->id}", ['rol' => 'admin'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('rol')
+            ->assertJsonPath(
+                'message',
+                'No se puede cambiar de rol a Rosa Quispe porque tiene 2 órdenes asignadas o en proceso: OS-2026-000007, OS-2026-000012. Termínalas o cancélalas primero.',
+            );
+
+        $operario->refresh();
+        $this->assertTrue($operario->activo);
+        $this->assertSame(Rol::Operario, $operario->rol);
+
+        // Cambiar solo el nombre sigue permitido.
+        $this->actingAs($admin)->putJson("/api/v1/users/{$operario->id}", ['name' => 'Rosa Q.'])
+            ->assertOk();
+    }
+
+    public function test_operario_con_una_sola_orden_activa_y_sin_ordenes_activas(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $operario = User::factory()->create(['rol' => Rol::Operario, 'name' => 'Luis']);
+        $orden = OrdenServicio::factory()->create([
+            'numero' => 'OS-2026-000020',
+            'operario_id' => $operario->id,
+            'estado' => EstadoOrden::Asignada,
+        ]);
+
+        $this->actingAs($admin)->putJson("/api/v1/users/{$operario->id}", ['activo' => false])
+            ->assertStatus(422)
+            ->assertJsonPath(
+                'message',
+                'No se puede desactivar a Luis porque tiene una orden asignada o en proceso: OS-2026-000020. Termínala o cancélala primero.',
+            );
+
+        $orden->update(['estado' => EstadoOrden::Cancelada]);
+
+        $this->actingAs($admin)->putJson("/api/v1/users/{$operario->id}", ['activo' => false])
+            ->assertOk()
+            ->assertJsonPath('activo', false);
     }
 
     public function test_admin_puede_degradar_a_otro_admin_si_quedan_dos(): void

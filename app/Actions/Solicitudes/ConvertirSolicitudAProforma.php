@@ -11,7 +11,7 @@ use App\Enums\TipoProformaItem;
 use App\Models\Proforma;
 use App\Models\SolicitudCotizacion;
 use App\Models\User;
-use Carbon\CarbonImmutable;
+use App\Support\FechaBolivia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -64,8 +64,8 @@ final class ConvertirSolicitudAProforma
 
             $proforma = $this->crearProforma->ejecutar([
                 'cliente_id' => $actual->cliente_id,
-                'fecha_emision' => CarbonImmutable::now()->toDateString(),
-                'fecha_validez' => CarbonImmutable::now()->addDays(30)->toDateString(),
+                'fecha_emision' => FechaBolivia::hoyTexto(),
+                'fecha_validez' => FechaBolivia::hoy()->addDays(30)->toDateString(),
                 'moneda' => 'BOB',
                 'impuesto_tasa' => 0,
                 'items' => $items,

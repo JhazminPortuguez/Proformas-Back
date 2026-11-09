@@ -26,7 +26,7 @@ class RegistrarPagoRequest extends FormRequest
         return [
             'monto' => ['required', 'numeric', 'decimal:0,2', 'min:0.01', 'max:'.Dinero::MONTO_MAXIMO],
             'metodo' => ['required', Rule::enum(MetodoPago::class)],
-            'fecha_pago' => ['nullable', 'date'],
+            'fecha_pago' => ['nullable', 'date_format:Y-m-d'],
             'referencia' => ['nullable', 'string', 'max:100'],
             'observaciones' => ['nullable', 'string', 'max:1000'],
         ];
@@ -45,7 +45,7 @@ class RegistrarPagoRequest extends FormRequest
             'monto.max' => 'El monto del pago excede el máximo permitido.',
             'metodo.required' => 'El método de pago es obligatorio.',
             'metodo.enum' => 'El método de pago seleccionado no es válido.',
-            'fecha_pago.date' => 'La fecha de pago debe ser una fecha válida.',
+            'fecha_pago.date_format' => 'La fecha de pago debe ser una fecha válida (AAAA-MM-DD).',
             'referencia.max' => 'La referencia no debe superar los 100 caracteres.',
             'observaciones.max' => 'Las observaciones no deben superar los 1000 caracteres.',
         ];

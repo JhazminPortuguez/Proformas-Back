@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Actions\Proformas;
 
+use App\Enums\EstadoCliente;
 use App\Enums\EstadoProforma;
+use App\Models\Cliente;
 use App\Models\Proforma;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,13 @@ final class AceptarProforma
                 'aceptada_por' => $usuario->id,
                 'updated_by' => $usuario->id,
             ]);
+
+            // Un prospecto que acepta su primera proforma pasa a ser cliente activo.
+            // Un cliente inactivo no se reactiva solo.
+            Cliente::query()
+                ->whereKey($actual->cliente_id)
+                ->where('estado', EstadoCliente::Prospecto)
+                ->update(['estado' => EstadoCliente::Activo, 'updated_at' => now()]);
 
             return $actual->load('cliente', 'items.producto', 'items.servicio', 'aceptador');
         });
