@@ -48,6 +48,7 @@ class PortalInicioController extends PortalController
             'solicitudes' => $solicitudes,
             'proformas' => $proformas,
             'ultimo' => $this->ultimo($request),
+            'puede_solicitar' => $this->puedeSolicitar($request),
         ]);
     }
 

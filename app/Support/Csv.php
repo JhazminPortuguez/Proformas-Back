@@ -24,17 +24,41 @@ final class Csv
             $salida = fopen('php://output', 'w');
 
             fwrite($salida, "\xEF\xBB\xBF");
-            fputcsv($salida, $encabezados, self::SEPARADOR, '"', '');
+            fputcsv($salida, array_map(self::celda(...), $encabezados), self::SEPARADOR, '"', '');
 
             foreach ($filas as $fila) {
-                fputcsv($salida, array_map(
-                    fn ($valor): string => $valor === null ? '' : (string) $valor,
-                    $fila,
-                ), self::SEPARADOR, '"', '');
+                fputcsv($salida, array_map(self::celda(...), $fila), self::SEPARADOR, '"', '');
             }
 
             fclose($salida);
         }, $archivo, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Valor de una celda. Un texto que empieza con =, +, -, @, tabulación o
+     * retorno de carro se antepone con un apóstrofo para que Excel no lo
+     * ejecute como fórmula (CSV injection). Los números, también negativos y
+     * con coma decimal ("-12,50"), no se tocan.
+     */
+    public static function celda(string|int|float|null $valor): string
+    {
+        if ($valor === null) {
+            return '';
+        }
+
+        if (is_int($valor) || is_float($valor)) {
+            return (string) $valor;
+        }
+
+        if (preg_match('/^-?\d+(?:[.,]\d+)?$/', $valor) === 1) {
+            return $valor;
+        }
+
+        if ($valor !== '' && str_contains("=+-@\t\r", $valor[0])) {
+            return "'".$valor;
+        }
+
+        return $valor;
     }
 
     /** Monto con coma decimal y sin separador de miles: "1234,50". */

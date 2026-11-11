@@ -22,13 +22,23 @@ final class AsignarOrden
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($actual->estado !== EstadoOrden::Pendiente) {
+            // O-04: una orden Asignada (todavía no iniciada) se puede reasignar;
+            // una En proceso ya no.
+            if (! in_array($actual->estado, [EstadoOrden::Pendiente, EstadoOrden::Asignada], true)) {
                 throw ValidationException::withMessages([
-                    'estado' => 'Solo se puede asignar una orden pendiente.',
+                    'estado' => 'Solo se puede asignar una orden pendiente o reasignar una asignada que no se inició.',
                 ]);
             }
 
             $operario = OperarioAsignable::validar($operarioId);
+            $reasigna = $actual->estado === EstadoOrden::Asignada;
+            $anterior = $reasigna ? $actual->operario()->first(['id', 'name']) : null;
+
+            if ($reasigna && (int) $actual->operario_id === $operario->id) {
+                throw ValidationException::withMessages([
+                    'operario_id' => 'La orden ya está asignada a '.$operario->name.'. Elige otro operario.',
+                ]);
+            }
 
             $actual->update([
                 'operario_id' => $operario->id,
@@ -38,13 +48,20 @@ final class AsignarOrden
 
             $actual->eventos()->create([
                 'tipo' => TipoOrdenEvento::Asignacion,
-                'descripcion' => 'Orden asignada a '.$operario->name.'.',
-                'estado_anterior' => EstadoOrden::Pendiente,
+                'descripcion' => $reasigna
+                    ? 'Orden reasignada de '.($anterior?->name ?? 'sin operario').' a '.$operario->name.'.'
+                    : 'Orden asignada a '.$operario->name.'.',
+                'estado_anterior' => $reasigna ? EstadoOrden::Asignada : EstadoOrden::Pendiente,
                 'estado_nuevo' => EstadoOrden::Asignada,
                 'user_id' => $usuario->id,
                 'metadata' => [
                     'operario_id' => $operario->id,
                     'operario' => $operario->name,
+                    ...($reasigna ? [
+                        'reasignacion' => true,
+                        'operario_anterior_id' => $anterior?->id,
+                        'operario_anterior' => $anterior?->name,
+                    ] : []),
                 ],
             ]);
 

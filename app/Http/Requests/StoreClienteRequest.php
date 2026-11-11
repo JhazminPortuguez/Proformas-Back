@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\EstadoCliente;
 use App\Models\Cliente;
+use App\Rules\NitCiUnico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,7 +22,7 @@ class StoreClienteRequest extends FormRequest
     {
         return [
             'nombre_razon' => ['required', 'string', 'max:200'],
-            'nit_ci' => ['nullable', 'string', 'max:30'],
+            'nit_ci' => ['nullable', 'string', 'max:30', new NitCiUnico],
             'telefono' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:150'],
             'direccion' => ['nullable', 'string', 'max:255'],

@@ -190,7 +190,7 @@ class OrdenServicioTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('estado', 'ASIGNADA')
             ->assertJsonPath('operario_id', $operario->id)
-            ->assertJsonPath('acciones_disponibles', ['ver', 'reprogramar', 'iniciar', 'cancelar']);
+            ->assertJsonPath('acciones_disponibles', ['ver', 'reasignar', 'reprogramar', 'iniciar', 'cancelar']);
 
         $eventos = collect($response->json('eventos'));
 
@@ -218,9 +218,48 @@ class OrdenServicioTest extends TestCase
             ->assertJsonPath('eventos.1.estado_anterior', 'PENDIENTE')
             ->assertJsonPath('eventos.1.estado_nuevo', 'ASIGNADA');
 
+        // Reasignar al mismo operario no tiene sentido.
         $this->actingAs($admin)->postJson("/api/v1/ordenes/{$ordenId}/asignar", [
             'operario_id' => $operario->id,
         ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('operario_id');
+    }
+
+    /** O-04 (punto 4): reasignar una orden Asignada queda en el historial. */
+    public function test_admin_reasigna_una_orden_asignada_y_queda_en_el_historial(): void
+    {
+        $admin = $this->admin();
+        $rosa = User::factory()->create(['rol' => Rol::Operario, 'activo' => true, 'name' => 'Rosa Quispe']);
+        $luis = User::factory()->create(['rol' => Rol::Operario, 'activo' => true, 'name' => 'Luis Mamani']);
+        $inactivo = User::factory()->create(['rol' => Rol::Operario, 'activo' => false]);
+        $proforma = $this->proformaAceptada($admin);
+        $ordenId = $this->crearOrden($admin, $proforma, ['operario_id' => $rosa->id])->assertCreated()->json('id');
+
+        // Operario inactivo: no.
+        $this->actingAs($admin)->postJson("/api/v1/ordenes/{$ordenId}/asignar", ['operario_id' => $inactivo->id])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('operario_id');
+
+        // El operario no puede reasignar.
+        $this->actingAs($rosa)->postJson("/api/v1/ordenes/{$ordenId}/asignar", ['operario_id' => $luis->id])
+            ->assertForbidden();
+
+        $respuesta = $this->actingAs($admin)->postJson("/api/v1/ordenes/{$ordenId}/asignar", ['operario_id' => $luis->id])
+            ->assertOk()
+            ->assertJsonPath('estado', 'ASIGNADA')
+            ->assertJsonPath('operario_id', $luis->id);
+
+        $evento = collect($respuesta->json('eventos'))->last();
+        $this->assertSame('ASIGNACION', $evento['tipo']);
+        $this->assertSame('Orden reasignada de Rosa Quispe a Luis Mamani.', $evento['descripcion']);
+        $this->assertSame('Rosa Quispe', $evento['metadata']['operario_anterior']);
+        $this->assertSame($rosa->id, $evento['metadata']['operario_anterior_id']);
+        $this->assertSame('Luis Mamani', $evento['metadata']['operario']);
+
+        // Una vez iniciada (En proceso) ya no se reasigna.
+        $this->actingAs($luis)->postJson("/api/v1/ordenes/{$ordenId}/iniciar")->assertOk();
+        $this->actingAs($admin)->postJson("/api/v1/ordenes/{$ordenId}/asignar", ['operario_id' => $rosa->id])
             ->assertStatus(422)
             ->assertJsonValidationErrors('estado');
     }

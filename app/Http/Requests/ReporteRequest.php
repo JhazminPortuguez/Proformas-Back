@@ -5,8 +5,10 @@ namespace App\Http\Requests;
 use App\Enums\Rol;
 use App\Support\EmpresaActual;
 use App\Support\PeriodoReporte;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Filtros comunes de /api/v1/reportes. Los reportes son solo del administrador.
@@ -43,6 +45,32 @@ class ReporteRequest extends FormRequest
                 Rule::exists('users', 'id')->where('empresa_id', EmpresaActual::id()),
             ],
             'formato' => ['nullable', Rule::in(['json', 'csv'])],
+        ];
+    }
+
+    public const MENSAJE_RANGO_AMPLIO = 'El rango del reporte no puede superar 1 año. Elige un periodo de 12 meses o menos.';
+
+    /**
+     * R-03: un rango de más de 1 año (por ejemplo, del 1/1/2026 al 1/1/2027)
+     * se rechaza para no cargar años de movimientos en una sola consulta.
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $desde = $this->input('desde');
+                $hasta = $this->input('hasta');
+
+                if (! is_string($desde) || ! is_string($hasta) || $validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                $limite = CarbonImmutable::createFromFormat('!Y-m-d', $desde)->addYear()->subDay();
+
+                if (CarbonImmutable::createFromFormat('!Y-m-d', $hasta)->gt($limite)) {
+                    $validator->errors()->add('hasta', self::MENSAJE_RANGO_AMPLIO);
+                }
+            },
         ];
     }
 

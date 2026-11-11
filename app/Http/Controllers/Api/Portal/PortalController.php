@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Portal;
 
+use App\Enums\EstadoCliente;
 use App\Enums\EstadoProforma;
 use App\Http\Controllers\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente;
 use App\Models\Proforma;
 use App\Models\SolicitudCotizacion;
 use Illuminate\Database\Eloquent\Builder;
@@ -49,6 +51,17 @@ abstract class PortalController extends Controller
                 fn (EstadoProforma $estado) => $estado->value,
                 EstadoProforma::visiblesParaCliente(),
             ));
+    }
+
+    public const MENSAJE_CLIENTE_INACTIVO = 'Tu cuenta de cliente está inactiva. Puedes ver tus solicitudes y proformas, pero para enviar una solicitud nueva comunícate con la empresa.';
+
+    /**
+     * Un cliente inactivo puede entrar y ver lo suyo, pero no enviar
+     * solicitudes nuevas.
+     */
+    protected function puedeSolicitar(Request $request): bool
+    {
+        return Cliente::query()->whereKey($this->clienteId($request))->value('estado') !== EstadoCliente::Inactivo;
     }
 
     protected function noEncontrado(): never

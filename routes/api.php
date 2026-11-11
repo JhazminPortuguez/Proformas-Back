@@ -54,6 +54,7 @@ Route::prefix('v1')->group(function (): void {
 
         Route::apiResource('clientes', ClienteController::class);
         Route::get('/clientes/{cliente}/resumen', [ClienteController::class, 'resumen']);
+        Route::get('/clientes/{cliente}/en-curso', [ClienteController::class, 'enCurso']);
         Route::get('/clientes/{cliente}/servicios', [ClienteController::class, 'servicios']);
         Route::apiResource('productos', ProductoController::class);
         Route::apiResource('proformas', ProformaController::class);

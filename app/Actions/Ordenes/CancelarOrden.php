@@ -236,7 +236,26 @@ final class CancelarOrden
         $stockAnterior = Dinero::cantidad($producto->stock_actual);
         $stockNuevo = Dinero::cantidad(bcadd($stockAnterior, $cantidad, Dinero::ESCALA_CANTIDAD));
 
-        $producto->update(['stock_actual' => $stockNuevo]);
+        // Lo devuelto se valora al costo con que salió en el consumo original,
+        // no al costo promedio de hoy. El promedio del producto se recalcula
+        // como en una entrada.
+        $costo = $this->costoDelConsumo($linea) ?? Dinero::redondear($producto->costo_promedio);
+        $costoPromedio = Dinero::comparar($stockNuevo, 0) > 0
+            ? Dinero::redondear(bcdiv(
+                bcadd(
+                    bcmul($stockAnterior, Dinero::redondear($producto->costo_promedio), 6),
+                    bcmul($cantidad, $costo, 6),
+                    6,
+                ),
+                $stockNuevo,
+                6,
+            ))
+            : Dinero::redondear($producto->costo_promedio);
+
+        $producto->update([
+            'stock_actual' => $stockNuevo,
+            'costo_promedio' => $costoPromedio,
+        ]);
 
         MovimientoInventario::create([
             'empresa_id' => $producto->empresa_id,
@@ -245,7 +264,7 @@ final class CancelarOrden
             'orden_item_id' => $linea->id,
             'tipo' => TipoMovimientoInventario::Devolucion,
             'cantidad' => $cantidad,
-            'costo_unitario' => Dinero::redondear($producto->costo_promedio),
+            'costo_unitario' => $costo,
             'stock_anterior' => $stockAnterior,
             'stock_nuevo' => $stockNuevo,
             'motivo' => 'Devolución por cancelación de la orden '.$orden->numero,
@@ -259,6 +278,33 @@ final class CancelarOrden
             ),
             'consumido_at' => null,
         ]);
+    }
+
+    /**
+     * Costo unitario de los consumos de la línea. Si se consumió en varias
+     * veces a costos distintos, el promedio ponderado por cantidad.
+     */
+    private function costoDelConsumo(OrdenItem $linea): ?string
+    {
+        $consumos = MovimientoInventario::query()
+            ->where('orden_item_id', $linea->id)
+            ->where('tipo', TipoMovimientoInventario::Consumo->value)
+            ->get(['cantidad', 'costo_unitario']);
+
+        $unidades = '0';
+        $valor = '0';
+
+        foreach ($consumos as $consumo) {
+            $cantidad = ltrim(Dinero::cantidad($consumo->cantidad), '-');
+            $unidades = bcadd($unidades, $cantidad, 6);
+            $valor = bcadd($valor, bcmul($cantidad, (string) ($consumo->costo_unitario ?? '0'), 6), 6);
+        }
+
+        if (bccomp($unidades, '0', 6) <= 0) {
+            return null;
+        }
+
+        return Dinero::redondear(bcdiv($valor, $unidades, 6));
     }
 
     /**

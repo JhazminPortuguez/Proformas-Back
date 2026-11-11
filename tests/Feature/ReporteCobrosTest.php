@@ -152,4 +152,18 @@ class ReporteCobrosTest extends TestCase
         $this->assertSame('CXC-2026-000007;Cancelación;"Hotel Illimani";222;2026-08-16;91;700,70;"Más de 90 días"', $lineas[1]);
         $this->assertSame('CXC-2026-000002;Servicio;"Constructora Andina";111;2026-11-15;0;200,20;"Al día"', $lineas[7]);
     }
+
+    public function test_csv_neutraliza_formulas_en_textos_del_cliente(): void
+    {
+        // R-05: un nombre que empieza como fórmula no se ejecuta al abrir el CSV.
+        $this->clienteB->update(['nombre_razon' => '=HYPERLINK("http://malo.example")', 'nit_ci' => '-222']);
+
+        $csv = $this->actingAs($this->admin)->get('/api/v1/reportes/cobros?formato=csv')->streamedContent();
+
+        $this->assertStringContainsString(
+            'CXC-2026-000007;Cancelación;"\'=HYPERLINK(""http://malo.example"")";-222;2026-08-16;91;700,70;',
+            $csv,
+        );
+        $this->assertStringNotContainsString(';"=HYPERLINK', $csv);
+    }
 }

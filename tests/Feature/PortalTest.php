@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\EstadoProforma;
 use App\Enums\EstadoSolicitud;
+use App\Http\Controllers\Api\Portal\PortalController;
 use App\Models\Cliente;
 use App\Models\CuentaPorCobrar;
 use App\Models\Empresa;
@@ -332,6 +333,35 @@ class PortalTest extends TestCase
     // ---------------------------------------------------------------
     // Solicitudes
     // ---------------------------------------------------------------
+
+    /** Punto 3 (U-03, A-05): el cliente inactivo ve lo suyo pero no envía solicitudes. */
+    public function test_cliente_inactivo_ve_sus_datos_pero_no_envia_solicitudes(): void
+    {
+        $this->clienteA->update(['estado' => 'inactivo']);
+        $antes = SolicitudCotizacion::query()->count();
+
+        $this->actingAs($this->usuarioA)->getJson('/api/v1/portal/proformas')->assertOk();
+        $this->actingAs($this->usuarioA)->getJson('/api/v1/portal/solicitudes')->assertOk();
+        $this->actingAs($this->usuarioA)->getJson('/api/v1/portal/resumen')
+            ->assertOk()
+            ->assertJsonPath('puede_solicitar', false);
+
+        $this->actingAs($this->usuarioA)->postJson('/api/v1/portal/solicitudes', [
+            'descripcion' => 'Necesito mantenimiento',
+            'items' => [['descripcion' => 'Mantenimiento', 'cantidad' => 1]],
+        ])->assertForbidden()
+            ->assertJsonPath('message', PortalController::MENSAJE_CLIENTE_INACTIVO);
+
+        $this->assertSame($antes, SolicitudCotizacion::query()->count());
+
+        // Prospecto y activo sí pueden.
+        $this->clienteA->update(['estado' => 'prospecto']);
+        $this->actingAs($this->usuarioA)->getJson('/api/v1/portal/resumen')->assertJsonPath('puede_solicitar', true);
+        $this->actingAs($this->usuarioA)->postJson('/api/v1/portal/solicitudes', [
+            'descripcion' => 'Necesito mantenimiento',
+            'items' => [['descripcion' => 'Mantenimiento', 'cantidad' => 1]],
+        ])->assertCreated();
+    }
 
     public function test_crea_solicitud_pendiente_con_sus_items(): void
     {
