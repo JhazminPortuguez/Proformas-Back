@@ -102,6 +102,7 @@ final class ReporteCobros
     private function saldos(?int $clienteId): array
     {
         $cuentas = CuentaPorCobrar::query()
+            ->vigentes()
             ->where('saldo', '>', 0)
             ->when($clienteId, fn (Builder $query, int $id) => $query->where('cliente_id', $id))
             ->with('cliente:id,nombre_razon,nit_ci')

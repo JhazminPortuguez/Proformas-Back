@@ -14,14 +14,13 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 
 **Estados:**
 - **cubierto:** implementado y probado.
+- **decidido: no se implementa:** se decidió no hacerlo; la fila dice la regla vigente.
 - **pendiente:** registrado, sin implementar.
-- **decisión de negocio:** espera una definición. Hoy rige lo que dice la fila.
 
 | Estado | Casos |
 |---|---|
-| cubierto | 94 de 103, entre ellos todos los P0 salvo X-11 |
-| decisión de negocio | 7: P-04, P-11, O-16, I-07, X-11, U-05, U-07 |
-| cubierto con una decisión pendiente | 2: P-03 (precio 0 en una línea libre) y D-03 (otras monedas) |
+| cubierto | 97 de 103, entre ellos todos los P0 |
+| decidido: no se implementa | 4: P-11, U-05, O-16, U-07 |
 | pendiente | 2 (P2): C-05, D-02 |
 
 ## 17.1 Reglas transversales
@@ -69,15 +68,15 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 |---|---|---|---|---|---|
 | P-01 | Proformas | Proforma sin ítems | P0 | cubierto | `CasosBordeMatrizTest::proforma_sin_items_o_con_cantidades_invalidas_es_422`; front `proforma-form.test.tsx › "detecta cliente e ítems faltantes antes de llamar al backend"` |
 | P-02 | Proformas | Cantidad 0, negativa o con más de 3 decimales | P0 | cubierto | `CasosBordeMatrizTest::proforma_sin_items_o_con_cantidades_invalidas_es_422`, `ProformaTest::cantidad_debe_ser_mayor_que_cero`; front `proforma-form.test.tsx` (validación local antes de enviar) |
-| P-03 | Proformas | Precio negativo o cero en línea libre | P0 | cubierto / decisión de negocio | Negativo: 422 (`CasosBordeMatrizTest::linea_libre_con_precio_negativo_es_422`, front `proforma-form.test.tsx`). Precio 0: hoy se permite; la proforma completa en Bs 0 no se envía (P-08). Falta decidir si una línea en Bs 0 se permite |
-| P-04 | Proformas | Servicio o material repetido | P1 | decisión de negocio | Hoy se permite sin aviso (`ProformaItemTest::permite_dos_lineas_del_mismo_producto`). Falta decidir: permitir con advertencia o bloquear |
+| P-03 | Proformas | Precio negativo o cero en línea libre | P0 | cubierto | Regla: un precio negativo da 422; una línea en Bs 0 (cortesía o garantía) se permite si el total de la proforma no es Bs 0 (P-08). `CasosBordeMatrizTest::linea_libre_con_precio_negativo_es_422`, `::linea_en_cero_se_permite_si_el_total_no_es_cero`; front `proforma-form.test.tsx` |
+| P-04 | Proformas | Servicio o material repetido | P1 | cubierto | Regla: se permite repetir, y el formulario avisa sin bloquear ("Hay ítems repetidos: … (2 veces)"). `ProformaItemTest::permite_dos_lineas_del_mismo_producto`; front `casos-borde.test.ts › itemsRepetidos`, `casos-borde-proformas.test.tsx › "avisa sin bloquear cuando el mismo material está en dos líneas"`; captura `borde3_04` |
 | P-05 | Proformas | Descuento mayor al subtotal | P0 | cubierto | `ProformaTest::descuento_no_puede_superar_subtotal`; front: el 422 se muestra junto al campo de descuento (`use-form-errors`) |
 | P-06 | Proformas | Impuesto fuera de rango o negativo | P0 | cubierto | `ProformaTest::impuesto_tasa_fuera_de_rango_es_422`; front: error por campo del 422 |
 | P-07 | Proformas | Validez anterior a la emisión | P1 | cubierto | `ProformaTest::fecha_validez_no_puede_ser_anterior_a_la_emision` |
 | P-08 | Proformas | Enviar proforma en Bs 0 | P0 | cubierto | `ProformaTest::no_se_envia_una_proforma_con_total_cero`, `::un_descuento_que_deja_el_total_en_cero_tampoco_se_envia`; front `envio-total-cero.test.tsx` (4 pruebas) |
 | P-09 | Proformas | Enviar, editar o aceptar en estado incorrecto | P0 | cubierto | `ProformaTest::no_se_edita_contenido_de_proforma_enviada`, `::no_se_puede_enviar_una_proforma_ya_aceptada`, `::put_generico_no_permite_cambiar_estado`; front `casos-borde-proformas.test.tsx › "si el back rechaza, el aviso dice el motivo…"` |
 | P-10 | Proformas | Aceptar o rechazar dos veces | P0 | cubierto | `ProformaTest::segunda_aceptacion_es_rechazada`; front `doble-clic.test.tsx › "confirmar aceptar proforma: una sola petición"` |
-| P-11 | Proformas | Cliente intenta aceptar desde el portal | P1 | decisión de negocio | Hoy el portal no acepta ni rechaza (`PortalTest::el_portal_no_acepta_ni_rechaza`); solo el admin y el operario registran la aceptación. Es la decisión 17.11-2 |
+| P-11 | Proformas | Cliente intenta aceptar desde el portal | P1 | decidido: no se implementa | Regla: solo el admin y el operario registran la aceptación; el portal no acepta ni rechaza. `PortalTest::el_portal_no_acepta_ni_rechaza` |
 | P-12 | Proformas | Eliminar proforma con orden o CxC | P0 | cubierto | `DeleteGuardsTest::no_se_elimina_proforma_fuera_de_borrador` (una proforma con orden ya no está en borrador); front: el botón eliminar solo existe en borradores (`acciones_disponibles`) |
 | P-13 | Proformas | Orden desde proforma no aceptada o con orden vigente | P0 | cubierto | `OrdenServicioTest::no_crea_orden_desde_proforma_borrador_enviada_o_rechazada`, `::no_duplica_orden_vigente…`; front `crear-orden-dialog.test.tsx` |
 | P-14 | Proformas | Catálogo eliminado o desactivado después del snapshot | P1 | cubierto | `OrdenServicioTest::el_snapshot_de_items_no_cambia_si_se_modifica_la_proforma`, `ProformaCasosBordeTest::proforma_que_ya_tiene_catalogo_desactivado_se_sigue_editando_sin_cambiarlo`, `DeleteGuardsTest::no_se_elimina_servicio_incluido_en_proformas` |
@@ -105,7 +104,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | O-13 | Órdenes | Varias líneas del mismo producto | P1 | cubierto | `ConsumoMaterialesTest::consume_multiples_materiales_de_varios_productos`, `::consumo_explicito_por_linea_y_productos_se_bloquean_en_orden_ascendente` |
 | O-14 | Órdenes | Cancelar con consumo ya realizado | P0 | cubierto | Decidido: lo devuelto vuelve al stock (DEVOLUCION, al costo del consumo original) y lo no devuelto puede cobrarse (CxC CANCELACION). `CancelarOrdenConMaterialesTest` (9 pruebas, incluida la de todo o nada); front `cancelar-orden-dialog.test.tsx` (7 pruebas); capturas `borde_08`–`borde_18` |
 | O-15 | Órdenes | Orden con total 0 al cerrar | P1 | cubierto | Regla actual: se genera la cuenta ya PAGADA con saldo 0. `CuentaPorCobrarTest::cuenta_de_orden_sin_lineas_nace_pagada_con_saldo_cero` |
-| O-16 | Órdenes | Varios operarios por orden | P2 | decisión de negocio | Hoy hay un responsable por orden. Es la decisión 17.11-7 |
+| O-16 | Órdenes | Varios operarios por orden | P2 | decidido: no se implementa | Regla: un solo operario responsable por orden; se puede reasignar mientras está Asignada (O-04) |
 
 ## 17.6 Inventario
 
@@ -117,7 +116,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | I-04 | Inventario | Ajuste que deja stock negativo | P0 | cubierto | `InventarioTest::ajuste_exige_motivo_rechaza_delta_cero_y_stock_negativo`, `::restricciones_check_de_postgresql`; front `stock-dialogs.test.tsx › "envía el stock final y el motivo"` (validación local) |
 | I-05 | Inventario | Entradas o consumos concurrentes | P0 | cubierto | Bloqueo de producto en orden ascendente: `ConsumoMaterialesTest::consumo_explicito_por_linea_y_productos_se_bloquean_en_orden_ascendente`; CHECK `stock >= 0` en PostgreSQL (`InventarioTest::restricciones_check_de_postgresql`) |
 | I-06 | Inventario | Consumo que deja stock en 0 | P1 | cubierto | `ConsumoMaterialesTest::consumo_total_descuenta_stock_registra_movimiento_y_evento`; aparece en stock bajo (`InventarioTest::listado_busca_con_acentos_filtra_bajo_stock_y_pagina`) |
-| I-07 | Inventario | Producto con stock mínimo 0 | P2 | decisión de negocio | Regla actual: es bajo stock si `stock_actual <= stock_minimo`, así que con mínimo 0 y stock 0 cuenta como bajo. Es la decisión 17.11-8 |
+| I-07 | Inventario | Producto con stock mínimo 0 | P2 | cubierto | Regla: mínimo 0 = sin alerta; no cuenta como bajo stock aunque el stock sea 0. `CasosBordeMatrizTest::stock_minimo_cero_no_cuenta_como_bajo_stock` (listado, resumen y dashboard), `DashboardTest::dashboard_integra…`; front `casos-borde.test.ts › productoStockBajo` |
 | I-08 | Inventario | Eliminar producto con movimientos | P0 | cubierto | `ProductoTest::no_elimina_producto_con_movimientos`, `DeleteGuardsTest::no_se_elimina_producto_incluido_en_proformas`; front: la tabla muestra el motivo del 409 |
 | I-09 | Inventario | Editar stock por el CRUD de producto | P0 | cubierto | `ProductoTest::no_permite_editar_stock_directamente`; front: el formulario de producto no tiene campo de stock (solo entrada y ajuste) |
 | I-10 | Inventario | Consumo desde una orden cerrada o cancelada | P0 | cubierto | `ConsumoMaterialesTest::rechaza_orden_cancelada_cerrada_pendiente_o_asignada` |
@@ -136,7 +135,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | X-08 | Cobros | Anular el último pago | P0 | cubierto | `CuentaPorCobrarTest::operario_registra_pagos…` (vuelve a PENDIENTE), `::anular_pago_parcial_recalcula_estado_parcial` |
 | X-09 | Cobros | Vencimiento hoy o ayer | P1 | cubierto | `CuentaPorCobrarTest::cuenta_vencida_se_calcula_con_el_dia_de_bolivia`, `ReporteCobrosTest::por_defecto_cobrado_del_mes_y_saldos_por_antiguedad_a_hoy` (vence hoy = al día) |
 | X-10 | Cobros | Pago con fecha futura o método inválido | P1 | cubierto | `CuentaPorCobrarTest::fecha_de_pago_no_puede_ser_futura_ni_anterior_a_la_emision_en_hora_de_bolivia`, `::rechaza_sobrepago…_metodo_invalido…`; front `fecha-pago.test.tsx` (4 pruebas); capturas `borde_01`, `borde_02` |
-| X-11 | Cobros | Cancelar o reembolsar una CxC | P0 | decisión de negocio | No hay flujo para anular una cuenta ni para reembolsar; hoy solo se anulan pagos. Es la decisión 17.11-5 |
+| X-11 | Cobros | Cancelar o reembolsar una CxC | P0 | cubierto | Regla: el admin anula una cuenta solo si no tiene pagos vigentes (saldo igual al total), con motivo obligatorio; queda quién y cuándo. La anulada no suma en el dashboard, el resumen ni los reportes y se ve con el filtro "Anulada". Con pagos, primero se anulan los pagos. Sin reembolsos. `CuentaAnulacionTest` (4 pruebas, también en PostgreSQL); front `anular-cuenta.test.tsx` (3 pruebas); capturas `borde3_01`–`borde3_03` |
 | X-12 | Cobros | Pago en cuenta de otra empresa o cliente | P0 | cubierto | `CasosBordeMatrizTest::pago_en_cuenta_de_otra_empresa_responde_404`, `CuentaPorCobrarTest::cliente_no_accede_al_modulo_de_cuentas_por_cobrar`; front: el detalle muestra "no encontrado" ante un 404 |
 
 ## 17.8 Reportes
@@ -160,9 +159,9 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | U-02 | Portal | PDF ajeno | P0 | cubierto | `PortalTest::detalle_y_pdf_de_otro_cliente_responden_404`, `ProformaPdfTest::cliente_no_puede_descargar_pdf` |
 | U-03 | Portal | Cliente sin vínculo o inactivo | P0 | cubierto | Igual que A-05 (decidido: el inactivo ve lo suyo y no envía solicitudes). `PortalTest::cliente_inactivo_ve_sus_datos_pero_no_envia_solicitudes`, `::cliente_sin_cliente_vinculado_recibe_403`; front `portal-componentes.test.tsx › "si el back responde 403, explica que la cuenta está inactiva"` |
 | U-04 | Portal | Solicitud sin ítems o con cantidades inválidas | P1 | cubierto | `PortalTest::valida_la_solicitud`; front `portal-componentes.test.tsx › "valida antes de enviar"`, `› "muestra los errores del servidor junto al campo"` |
-| U-05 | Portal | Cliente intenta aceptar sin estar habilitado | P1 | decisión de negocio | Hoy no hay flujo de aceptación en el portal (`PortalTest::el_portal_no_acepta_ni_rechaza`). Ligado a la decisión 17.11-2 |
+| U-05 | Portal | Cliente intenta aceptar sin estar habilitado | P1 | decidido: no se implementa | Regla: el portal no tiene aceptación (igual que P-11). `PortalTest::el_portal_no_acepta_ni_rechaza` |
 | U-06 | Portal | Portal sin órdenes ni estado de cuenta | P2 | cubierto | El portal muestra solicitudes y proformas, sin enlaces a módulos que no tiene (`portal-componentes.test.tsx › "muestra el menú del portal…"`) |
-| U-07 | Portal | Formulario público sin rate limit | P1 | decisión de negocio | No existe un formulario público: hace falta cuenta, y el registro está limitado a 5 por minuto (`RegistrationTest::registro_esta_limitado_a_cinco_por_minuto_por_ip`). Las solicitudes también tienen límite (`PortalTest::limita_el_envio_de_solicitudes`). Un formulario sin cuenta queda para cuando haya antispam |
+| U-07 | Portal | Formulario público sin rate limit | P1 | decidido: no se implementa | Regla: no habrá formulario público; para pedir cotización hace falta cuenta. El registro tiene límite (`RegistrationTest::registro_esta_limitado_a_cinco_por_minuto_por_ip`) y las solicitudes también (`PortalTest::limita_el_envio_de_solicitudes`) |
 | U-08 | Portal | La sesión expira durante una solicitud | P1 | cubierto | Front `client.test.ts › "renueva el CSRF y reintenta una vez cuando recibe 419"`; con 401 el formulario lleva al login. El back no duplica: el límite y la validación por solicitud impiden un envío doble (`doble-clic.test.tsx › "enviar solicitud del portal…"`) |
 
 ## 17.10 Dashboard y UI
@@ -171,23 +170,25 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 |---|---|---|---|---|---|
 | D-01 | Dashboard | Mes sin movimientos | P1 | cubierto | `DashboardTest::operario_accede_al_dashboard_y_el_entorno_vacio_devuelve_ceros`; front `dashboard.test.ts`, `dashboard-view.test.tsx` (ceros y estados vacíos) |
 | D-02 | Dashboard | Cambio de mes mientras se visualiza | P2 | pendiente | Los datos corresponden a la consulta: el mes se calcula en hora de Bolivia al cargar (`DashboardTest`). No se refresca solo al cambiar de mes |
-| D-03 | Dashboard | Monedas mezcladas | P0 | cubierto / decisión de negocio | Hoy solo se crean proformas en BOB (`ProformaTest::solo_se_crean_proformas_en_bolivianos`, `::no_se_cambia_la_moneda…`), así que no se mezclan monedas. Una moneda adicional es la decisión 17.11-9 |
+| D-03 | Dashboard | Monedas mezcladas | P0 | cubierto | Regla: solo bolivianos, así que no se mezclan monedas. `ProformaTest::solo_se_crean_proformas_en_bolivianos`, `::no_se_cambia_la_moneda_de_una_proforma_a_otra_que_no_sea_bob` |
 | D-04 | UI | Doble submit o refresh durante una mutación | P1 | cubierto | Front `doble-clic.test.tsx` (5 pruebas); todos los botones de guardar, enviar, confirmar, pagar y cancelar se deshabilitan con `pending` |
 | D-05 | UI | Error 422 con un drawer abierto | P1 | cubierto | Front `use-form-errors.test.tsx › "cuenta campos y enfoca el primero inválido…"`, `pago-dialogs.test.tsx › "muestra el 422 junto al monto y enfoca el campo"`, `stock-dialogs.test.tsx › "muestra el 422 junto al campo y enfoca la cantidad"` |
-| D-06 | UI | 375 px con tabla, tablero o diálogo | P1 | cubierto | Tarjetas en el celular en vez de tablas (`ordenes-table.test.tsx › "muestra el NIT/CI también en las tarjetas del celular"`, `cliente-tabs.test.tsx`); capturas `borde_18` y `borde2_*` en el celular. Cuentas por cobrar cabe sin desplazamiento desde 1280 px (`cobros-table.test.tsx`, captura borde2 a 1280 px) |
+| D-06 | UI | 375 px con tabla, tablero o diálogo | P1 | cubierto | Tarjetas en el celular en vez de tablas (`ordenes-table.test.tsx › "muestra el NIT/CI también en las tarjetas del celular"`, `cliente-tabs.test.tsx`); capturas `borde_18` y `borde2_*` en el celular. Cuentas por cobrar y Proformas caben sin desplazamiento desde 1280 px (`cobros-table.test.tsx`, `proformas-table.test.tsx`, Playwright `interno.spec.ts › "casos borde…"`, capturas `borde2_10` y `borde3_05`) |
 | D-07 | UI | Teclado y lectores de pantalla | P1 | cubierto | Front `use-form-errors.test.tsx` (foco), tooltips por foco de teclado (`tooltips-listados.test.tsx`), anuncios con `useAnnouncer`; Playwright `e2e/interno.spec.ts` falla si React Aria avisa de controles sin etiqueta |
 
-## Decisiones que esperan una definición (17.11)
+## Decisiones de 17.11
 
-| # | Decisión | Estado |
+Todas están decididas (15 nov 2026).
+
+| # | Decisión | Regla |
 |---|---|---|
-| 1 | Proforma vencida | Decidida: no se envía; aceptar una enviada sí, con aviso |
-| 2 | Aceptación de proforma (admin, operario o cliente desde el portal) | Pendiente (P-11, U-05). Hoy aceptan el admin y el operario |
-| 3 | Materiales consumidos: cobrables o costo interno | Decidida para la cancelación (se cobra lo no devuelto). En el flujo normal se cobran porque están en la proforma |
-| 4 | Cancelación con consumo | Decidida: DEVOLUCION y cobro CANCELACION (O-14) |
-| 5 | Cancelar o reembolsar una CxC o un pago | Pendiente (X-11). Hoy solo se anulan pagos |
-| 6 | IVA incluido o discriminado; servicios exentos | Pendiente. Hoy hay una tasa por proforma (13 % por defecto) |
-| 7 | Varios operarios por orden | Pendiente (O-16) |
-| 8 | Stock mínimo 0 como bajo stock | Pendiente (I-07) |
-| 9 | Solo BOB o varias monedas | Pendiente (D-03). Hoy solo BOB |
-| 10 | Orden directa sin proforma aceptada | Pendiente. Hoy no se permite (O-01) |
+| 1 | Proforma vencida | No se envía; aceptar una enviada y vencida se permite con aviso (P-15) |
+| 2 | Aceptación de proforma | Solo el admin y el operario; el portal no acepta (P-11, U-05) |
+| 3 | Materiales consumidos | Se cobran porque están en la proforma; al cancelar, lo no devuelto puede cobrarse (O-14) |
+| 4 | Cancelación con consumo | DEVOLUCION al stock y cobro CANCELACION (O-14) |
+| 5 | Cancelar o reembolsar una CxC | El admin anula una cuenta sin pagos vigentes, con motivo; sin reembolsos (X-11) |
+| 6 | IVA | Se queda como está: impuesto informativo en la proforma (una tasa por proforma) |
+| 7 | Varios operarios por orden | No: un solo responsable (O-16) |
+| 8 | Stock mínimo 0 | Sin alerta de bajo stock (I-07) |
+| 9 | Moneda | Solo bolivianos (D-03) |
+| 10 | Orden directa sin proforma aceptada | No se permite (O-01) |

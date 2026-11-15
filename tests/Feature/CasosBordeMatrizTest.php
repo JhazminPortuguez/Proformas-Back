@@ -122,4 +122,58 @@ class CasosBordeMatrizTest extends TestCase
 
         $this->assertSame(0, PagoCuenta::query()->count());
     }
+
+    /** I-07: stock mínimo 0 = sin alerta, aunque el stock sea 0. */
+    public function test_stock_minimo_cero_no_cuenta_como_bajo_stock(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $sinAlerta = Producto::factory()->create(['nombre' => 'Sin alerta', 'stock_actual' => 0, 'stock_minimo' => 0]);
+        $enMinimo = Producto::factory()->create(['nombre' => 'En el mínimo', 'stock_actual' => 5, 'stock_minimo' => 5]);
+        Producto::factory()->create(['nombre' => 'Con stock', 'stock_actual' => 9, 'stock_minimo' => 5]);
+
+        $this->assertFalse($sinAlerta->stockBajo());
+        $this->assertTrue($enMinimo->stockBajo());
+
+        $filtrados = array_column(
+            $this->actingAs($admin)->getJson('/api/v1/inventario?bajo_stock=1')->assertOk()->json('data'),
+            'nombre',
+        );
+        $this->assertSame(['En el mínimo'], $filtrados);
+
+        $this->actingAs($admin)->getJson('/api/v1/inventario/resumen')->assertJsonPath('bajo_stock', 1);
+        $this->actingAs($admin)->getJson('/api/v1/dashboard')->assertJsonPath('inventario.stock_bajo', 1);
+    }
+
+    /** P-03: una línea en Bs 0 (cortesía o garantía) se permite si el total no es Bs 0. */
+    public function test_linea_en_cero_se_permite_si_el_total_no_es_cero(): void
+    {
+        $usuario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create();
+        $producto = Producto::factory()->create(['precio_unitario' => 50]);
+
+        $conCortesia = $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-11-01',
+            'items' => [
+                ['producto_id' => $producto->id, 'cantidad' => 1],
+                ['tipo' => 'LIBRE', 'descripcion' => 'Diagnóstico de cortesía', 'cantidad' => 1, 'precio_unitario' => 0],
+            ],
+        ])->assertCreated()->json();
+
+        $libre = collect($conCortesia['items'])->firstWhere('tipo', 'LIBRE');
+        $this->assertEquals(0, $libre['total_linea']);
+        $this->assertEquals(50, $conCortesia['total'] - $conCortesia['impuesto']);
+
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$conCortesia['id']}/enviar")->assertOk();
+
+        $soloCortesia = $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-11-01',
+            'items' => [['tipo' => 'LIBRE', 'descripcion' => 'Revisión en garantía', 'cantidad' => 1, 'precio_unitario' => 0]],
+        ])->assertCreated()->json();
+
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$soloCortesia['id']}/enviar")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('total');
+    }
 }

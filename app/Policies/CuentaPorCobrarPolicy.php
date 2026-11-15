@@ -27,4 +27,10 @@ class CuentaPorCobrarPolicy
     {
         return $user->rol === Rol::Admin;
     }
+
+    /** X-11: anular la cuenta es solo del admin. */
+    public function anular(User $user, CuentaPorCobrar $cuenta): bool
+    {
+        return $user->rol === Rol::Admin;
+    }
 }

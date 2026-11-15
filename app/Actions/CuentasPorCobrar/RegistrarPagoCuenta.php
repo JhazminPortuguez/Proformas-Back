@@ -34,6 +34,12 @@ final class RegistrarPagoCuenta
                 ]);
             }
 
+            if ($actual->estado_cobro === EstadoCobro::Anulada) {
+                throw ValidationException::withMessages([
+                    'monto' => 'La cuenta está anulada: no admite pagos.',
+                ]);
+            }
+
             if ($actual->estado_cobro === EstadoCobro::Pagada || Dinero::esCero($actual->saldo)) {
                 throw ValidationException::withMessages([
                     'monto' => 'La cuenta ya está pagada.',
