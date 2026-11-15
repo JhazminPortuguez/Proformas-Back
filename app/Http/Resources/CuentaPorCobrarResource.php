@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\EstadoCobro;
 use App\Models\CuentaPorCobrar;
 use App\Support\Dinero;
 use Illuminate\Http\Request;
@@ -33,6 +34,13 @@ class CuentaPorCobrarResource extends JsonResource
             'vencida' => $this->estaVencida(),
             'dias_vencida' => $this->diasVencida(),
             'observaciones' => $this->observaciones,
+            'anulada' => $this->estado_cobro === EstadoCobro::Anulada,
+            'anulada_at' => $this->anulada_at?->toISOString(),
+            'motivo_anulacion' => $this->motivo_anulacion,
+            'anulador' => $this->whenLoaded('anulador', fn () => $this->anulador === null ? null : [
+                'id' => $this->anulador->id,
+                'name' => $this->anulador->name,
+            ]),
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,
             'pagos_count' => $this->whenCounted('pagos'),
@@ -79,6 +87,16 @@ class CuentaPorCobrarResource extends JsonResource
             && $user->can('registrarPago', $cuenta)
         ) {
             $acciones[] = 'pagar';
+        }
+
+        // X-11: solo sin pagos vigentes (saldo igual al total) y no anulada.
+        if (
+            $cuenta->estado_cobro !== EstadoCobro::Anulada
+            && Dinero::comparar($cuenta->saldo, $cuenta->monto_total) === 0
+            && Dinero::mayorQue($cuenta->monto_total, 0)
+            && $user->can('anular', $cuenta)
+        ) {
+            $acciones[] = 'anular';
         }
 
         return $acciones;

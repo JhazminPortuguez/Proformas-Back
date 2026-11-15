@@ -52,9 +52,14 @@ class Producto extends Model
      * Productos con stock en o por debajo del mínimo: la misma regla que
      * {@see stockBajo()}.
      */
+    /**
+     * I-07: bajo stock si el stock llega al mínimo. Un mínimo 0 significa
+     * "sin alerta": no cuenta aunque el stock sea 0.
+     */
     public function scopeBajoStock(Builder $query): Builder
     {
-        return $query->whereColumn('stock_actual', '<=', 'stock_minimo');
+        return $query->where('stock_minimo', '>', 0)
+            ->whereColumn('stock_actual', '<=', 'stock_minimo');
     }
 
     /** Los que más unidades necesitan para llegar al mínimo, primero. */
@@ -68,6 +73,11 @@ class Producto extends Model
 
     public function stockBajo(): bool
     {
+        // Mínimo 0 = sin alerta (I-07).
+        if (Dinero::comparar($this->stock_minimo ?? 0, 0) <= 0) {
+            return false;
+        }
+
         return Dinero::comparar(
             $this->stock_actual ?? 0,
             $this->stock_minimo ?? 0

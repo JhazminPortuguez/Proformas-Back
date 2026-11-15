@@ -116,6 +116,7 @@ final class ObtenerResumenCliente
     private function resumenCobros(Cliente $cliente): array
     {
         $agregado = CuentaPorCobrar::query()
+            ->vigentes()
             ->where('cliente_id', $cliente->getKey())
             ->selectRaw('count(*) as cuentas, coalesce(sum(saldo), 0) as saldo, coalesce(sum(monto_total), 0) as monto_total')
             ->first();

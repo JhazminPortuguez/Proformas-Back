@@ -89,6 +89,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/cuentas-por-cobrar/resumen', [CuentaPorCobrarController::class, 'resumen']);
         Route::get('/cuentas-por-cobrar/{cuenta}', [CuentaPorCobrarController::class, 'show']);
         Route::post('/cuentas-por-cobrar/{cuenta}/pagos', [CuentaPorCobrarController::class, 'registrarPago']);
+        Route::post('/cuentas-por-cobrar/{cuenta}/anular', [CuentaPorCobrarController::class, 'anular']);
         Route::post('/pagos-cuenta/{pago}/anular', [PagoCuentaController::class, 'anular']);
 
         Route::post('/solicitudes/{solicitud}/convertir', [SolicitudController::class, 'convertir']);

@@ -9,6 +9,7 @@ use App\Enums\EstadoCobro;
 use App\Models\Concerns\PerteneceAEmpresa;
 use App\Support\Dinero;
 use App\Support\FechaBolivia;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +33,9 @@ class CuentaPorCobrar extends Model
         'monto_total',
         'saldo',
         'estado_cobro',
+        'anulada_at',
+        'anulada_por',
+        'motivo_anulacion',
         'observaciones',
         'created_by',
         'updated_by',
@@ -45,6 +49,7 @@ class CuentaPorCobrar extends Model
             'monto_total' => 'decimal:2',
             'saldo' => 'decimal:2',
             'estado_cobro' => EstadoCobro::class,
+            'anulada_at' => 'datetime',
             'concepto' => ConceptoCuenta::class,
         ];
     }
@@ -70,6 +75,23 @@ class CuentaPorCobrar extends Model
     {
         return $this->hasMany(PagoCuenta::class, 'cuenta_id')
             ->whereNull('anulado_at');
+    }
+
+    public function anulador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'anulada_por');
+    }
+
+    /**
+     * Cuentas que cuentan para cobranza (dashboard, resúmenes, reportes):
+     * todas menos las anuladas.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeVigentes($query)
+    {
+        return $query->where('estado_cobro', '!=', EstadoCobro::Anulada->value);
     }
 
     public function creador(): BelongsTo

@@ -235,14 +235,14 @@ final class ObtenerResumenDashboard
         );
 
         return [
-            'cuentas' => CuentaPorCobrar::query()->count(),
+            'cuentas' => CuentaPorCobrar::query()->vigentes()->count(),
             'pendientes' => $cuentasConSaldo->count(),
             'vencidas' => $antiguedad['vencidas'],
             'saldo' => (float) $antiguedad['saldo'],
             'monto_vencido' => (float) $antiguedad['monto_vencido'],
             'cobrado_mes' => (float) $cobradoMes,
             'monto_total' => (float) Dinero::redondear(
-                (string) (CuentaPorCobrar::query()->sum('monto_total') ?? 0)
+                (string) (CuentaPorCobrar::query()->vigentes()->sum('monto_total') ?? 0)
             ),
             'aging' => array_map(
                 fn (string $monto): float => (float) $monto,

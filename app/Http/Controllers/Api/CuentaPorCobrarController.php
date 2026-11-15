@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\CuentasPorCobrar\AnularCuentaPorCobrar;
 use App\Actions\CuentasPorCobrar\RegistrarPagoCuenta;
 use App\Enums\EstadoCobro;
 use App\Http\Controllers\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AnularCuentaRequest;
 use App\Http\Requests\RegistrarPagoRequest;
 use App\Http\Resources\CuentaPorCobrarResource;
 use App\Models\CuentaPorCobrar;
@@ -52,7 +54,12 @@ class CuentaPorCobrarController extends Controller
                         ->orWhereHas('orden', fn ($query) => $query->whereRaw(Busqueda::like('numero'), [$termino]));
                 });
             })
-            ->when($filtros['estado_cobro'] ?? null, fn ($query, $estado) => $query->where('estado_cobro', $estado))
+            ->when(
+                $filtros['estado_cobro'] ?? null,
+                fn ($query, $estado) => $query->where('estado_cobro', $estado),
+                // Las anuladas solo se ven con el filtro de estado ANULADA.
+                fn ($query) => $query->vigentes(),
+            )
             ->when($request->boolean('vencida'), function ($query): void {
                 $query->where('saldo', '>', 0)
                     ->whereDate('fecha_vencimiento', '<', FechaBolivia::hoyTexto());
@@ -74,8 +81,8 @@ class CuentaPorCobrarController extends Controller
     {
         $this->authorize('viewAny', CuentaPorCobrar::class);
 
-        $inicioMes = now()->startOfMonth()->toDateString();
-        $finMes = now()->endOfMonth()->toDateString();
+        $inicioMes = FechaBolivia::hoy()->startOfMonth()->toDateString();
+        $finMes = FechaBolivia::hoy()->endOfMonth()->toDateString();
 
         $cobradoMes = PagoCuenta::query()
             ->whereNull('anulado_at')
@@ -83,7 +90,7 @@ class CuentaPorCobrarController extends Controller
             ->sum('monto');
 
         return response()->json([
-            'cuentas' => CuentaPorCobrar::query()->count(),
+            'cuentas' => CuentaPorCobrar::query()->vigentes()->count(),
             'pendientes' => CuentaPorCobrar::query()->where('saldo', '>', 0)->count(),
             'vencidas' => CuentaPorCobrar::query()
                 ->where('saldo', '>', 0)
@@ -94,7 +101,7 @@ class CuentaPorCobrarController extends Controller
             ),
             'cobrado_mes' => (float) Dinero::redondear((string) $cobradoMes),
             'monto_total' => (float) Dinero::redondear(
-                (string) (CuentaPorCobrar::query()->sum('monto_total') ?? 0)
+                (string) (CuentaPorCobrar::query()->vigentes()->sum('monto_total') ?? 0)
             ),
         ]);
     }
@@ -124,6 +131,15 @@ class CuentaPorCobrarController extends Controller
             ->setStatusCode(201);
     }
 
+    public function anular(AnularCuentaRequest $request, CuentaPorCobrar $cuenta, AnularCuentaPorCobrar $anular)
+    {
+        $this->authorize('anular', $cuenta);
+
+        return new CuentaPorCobrarResource(
+            $anular->ejecutar($cuenta, (string) $request->validated('motivo'), $request->user())
+        );
+    }
+
     private function cargar(CuentaPorCobrar $cuenta): CuentaPorCobrar
     {
         return $cuenta->load(
@@ -131,6 +147,7 @@ class CuentaPorCobrarController extends Controller
             'orden',
             'pagos.usuario',
             'pagos.anulador',
+            'anulador',
             'creador',
             'editor',
         )->loadCount('pagos');

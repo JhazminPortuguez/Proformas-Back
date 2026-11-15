@@ -395,7 +395,8 @@ class DashboardTest extends TestCase
             ->assertJsonPath('ordenes.finalizadas_mes', 1)
             ->assertJsonPath('ordenes.cerradas_mes', 1)
             ->assertJsonPath('inventario.productos', 6)
-            ->assertJsonPath('inventario.stock_bajo', 4)
+            // I-07: el sensor tiene mínimo 0 (sin alerta) y no cuenta aunque su stock sea 0.
+            ->assertJsonPath('inventario.stock_bajo', 3)
             ->assertJsonPath('inventario.valor_inventario', 1500)
             ->assertJsonPath('inventario.movimientos_mes', 1)
             ->assertJsonPath('inventario.productos_bajo_stock.0.nombre', 'Filtro de aire')

@@ -503,7 +503,8 @@ class CuentaPorCobrarTest extends TestCase
             ->assertJsonPath('pagos.0.usuario.id', $admin->id)
             ->assertJsonPath('pagos.0.anulador.id', $admin->id)
             ->assertJsonPath('pagos.0.motivo_anulacion', 'Cobro duplicado.')
-            ->assertJsonPath('acciones_disponibles', ['ver', 'pagar']);
+            // Sin pagos vigentes, el admin también puede anular la cuenta (X-11).
+            ->assertJsonPath('acciones_disponibles', ['ver', 'pagar', 'anular']);
 
         $this->assertSame($pagoId, $detalle->json('pagos.0.id'));
     }

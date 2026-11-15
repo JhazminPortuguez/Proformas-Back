@@ -45,7 +45,7 @@ class InventarioController extends Controller
                         ->orWhereRaw(Busqueda::like("coalesce(descripcion, '')"), [$termino]);
                 });
             })
-            ->when($request->has('bajo_stock') && $request->boolean('bajo_stock'), fn ($query) => $query->whereColumn('stock_actual', '<=', 'stock_minimo'))
+            ->when($request->has('bajo_stock') && $request->boolean('bajo_stock'), fn ($query) => $query->bajoStock())
             ->when($request->has('activo'), fn ($query) => $query->where('activo', $request->boolean('activo')))
             ->orderBy('nombre')
             ->orderBy('id')
@@ -68,7 +68,7 @@ class InventarioController extends Controller
 
         return response()->json([
             'productos' => Producto::query()->count(),
-            'bajo_stock' => Producto::query()->whereColumn('stock_actual', '<=', 'stock_minimo')->count(),
+            'bajo_stock' => Producto::query()->bajoStock()->count(),
             'valor_inventario' => (float) Dinero::redondear($valorInventario),
             'movimientos_mes' => MovimientoInventario::query()
                 ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
