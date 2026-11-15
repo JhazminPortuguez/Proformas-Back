@@ -10,12 +10,25 @@ use App\Enums\OrigenProforma;
 use App\Models\Cliente;
 use App\Models\Proforma;
 use App\Models\User;
+use App\Support\FechaBolivia;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class CrearProforma
 {
+    /** La emisión es como máximo hoy en Bolivia. */
+    public static function validarEmisionNoFutura(string $fechaEmision): void
+    {
+        $hoy = FechaBolivia::hoyTexto();
+
+        if (substr($fechaEmision, 0, 10) > $hoy) {
+            throw ValidationException::withMessages([
+                'fecha_emision' => 'La fecha de emisión no puede ser futura (hoy es '.FechaBolivia::formato($hoy).').',
+            ]);
+        }
+    }
+
     public const MENSAJE_CLIENTE_INACTIVO = 'No se pueden crear proformas para un cliente inactivo. Cámbialo a Prospecto o Activo primero.';
 
     public function __construct(
@@ -46,6 +59,8 @@ final class CrearProforma
             );
 
             $fechaEmision = CarbonImmutable::parse($datos['fecha_emision']);
+
+            self::validarEmisionNoFutura($fechaEmision->toDateString());
             $fechaValidez = $datos['fecha_validez'] ?? null;
 
             if ($fechaValidez !== null && CarbonImmutable::parse($fechaValidez)->lt($fechaEmision)) {

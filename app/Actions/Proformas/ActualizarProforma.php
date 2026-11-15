@@ -72,6 +72,15 @@ final class ActualizarProforma
             }
 
             $fechaEmision = $datos['fecha_emision'] ?? $actual->fecha_emision?->toDateString();
+
+            // Solo si cambia: un borrador antiguo con fecha futura se sigue editando.
+            if (
+                array_key_exists('fecha_emision', $datos)
+                && $datos['fecha_emision'] !== null
+                && substr((string) $datos['fecha_emision'], 0, 10) !== $actual->fecha_emision?->toDateString()
+            ) {
+                CrearProforma::validarEmisionNoFutura((string) $datos['fecha_emision']);
+            }
             $fechaValidez = array_key_exists('fecha_validez', $datos)
                 ? $datos['fecha_validez']
                 : $actual->fecha_validez?->toDateString();

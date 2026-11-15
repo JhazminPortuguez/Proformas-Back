@@ -52,6 +52,10 @@ class PortalSolicitudController extends PortalController
      */
     public function store(StorePortalSolicitudRequest $request, CrearSolicitud $crear): JsonResponse
     {
+        if (! $this->puedeSolicitar($request)) {
+            return response()->json(['message' => self::MENSAJE_CLIENTE_INACTIVO], 403);
+        }
+
         $datos = $request->validated();
         $datos['cliente_id'] = $this->clienteId($request);
 

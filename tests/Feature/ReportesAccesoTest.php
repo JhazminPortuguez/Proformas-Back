@@ -59,6 +59,27 @@ class ReportesAccesoTest extends TestCase
         $this->actingAs($admin)->getJson($endpoint)->assertOk();
     }
 
+    /** R-03: un año como máximo; R-02: rango invertido. */
+    #[DataProvider('endpoints')]
+    public function test_rango_de_mas_de_un_anio_o_invertido_se_rechaza(string $endpoint): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+
+        $this->actingAs($admin)->getJson("{$endpoint}?desde=2026-01-01&hasta=2026-12-31")
+            ->assertOk();
+
+        $this->actingAs($admin)->getJson("{$endpoint}?desde=2026-01-01&hasta=2027-01-01")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.hasta.0', 'El rango del reporte no puede superar 1 año. Elige un periodo de 12 meses o menos.');
+
+        $this->actingAs($admin)->get("{$endpoint}?desde=2024-01-01&hasta=2026-11-10&formato=csv", ['Accept' => 'application/json'])
+            ->assertStatus(422);
+
+        $this->actingAs($admin)->getJson("{$endpoint}?desde=2026-11-10&hasta=2026-11-01")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('hasta');
+    }
+
     public function test_el_filtro_de_clientes_solo_envia_id_nombre_y_nit(): void
     {
         $admin = User::factory()->create(['rol' => Rol::Admin]);

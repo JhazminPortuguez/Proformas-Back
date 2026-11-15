@@ -7,12 +7,15 @@ namespace App\Actions\Proformas;
 use App\Enums\EstadoProforma;
 use App\Models\Proforma;
 use App\Models\User;
+use App\Support\FechaBolivia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class EnviarProforma
 {
     public const MENSAJE_TOTAL_CERO = 'La proforma debe tener un total mayor a Bs 0 para enviarse.';
+
+    public const MENSAJE_VENCIDA = 'Actualiza la fecha de validez antes de enviar.';
 
     public function ejecutar(Proforma $proforma, User $usuario): Proforma
     {
@@ -31,6 +34,14 @@ final class EnviarProforma
             if ((float) $actual->total <= 0) {
                 throw ValidationException::withMessages([
                     'total' => self::MENSAJE_TOTAL_CERO,
+                ]);
+            }
+
+            // P-15: una proforma con la validez ya vencida (hora de Bolivia)
+            // no se envía. Aceptar una enviada y vencida sí se permite, con aviso.
+            if ($actual->fecha_validez !== null && $actual->fecha_validez->toDateString() < FechaBolivia::hoyTexto()) {
+                throw ValidationException::withMessages([
+                    'fecha_validez' => self::MENSAJE_VENCIDA,
                 ]);
             }
 

@@ -94,6 +94,34 @@ class CancelarOrdenConMaterialesTest extends TestCase
         $this->assertSame('4.000', $this->ssd->fresh()->stock_actual);
     }
 
+    /** Punto 7: lo devuelto vale lo que costó al consumirse, no el promedio de hoy. */
+    public function test_la_devolucion_se_valora_al_costo_del_consumo_original(): void
+    {
+        $this->assertSame('120.00', MovimientoInventario::query()
+            ->where('orden_item_id', $this->lineaRam->id)->where('tipo', 'CONSUMO')->value('costo_unitario'));
+
+        // Una compra posterior más cara sube el promedio: (8 × 120 + 2 × 180) / 10 = 132.
+        $this->actingAs($this->admin)->postJson('/api/v1/inventario/entradas', [
+            'producto_id' => $this->ram->id,
+            'cantidad' => 2,
+            'costo_unitario' => 180,
+            'motivo' => 'Compra a precio nuevo',
+        ])->assertCreated();
+        $this->assertSame('132.00', $this->ram->fresh()->costo_promedio);
+
+        $this->cancelar([
+            'motivo' => 'El cliente desistió.',
+            'devoluciones' => [['orden_item_id' => $this->lineaRam->id, 'cantidad' => 1]],
+        ])->assertOk();
+
+        $devolucion = MovimientoInventario::query()->where('tipo', 'DEVOLUCION')->sole();
+        $this->assertSame('120.00', $devolucion->costo_unitario);
+
+        // Promedio recalculado como una entrada: (10 × 132 + 1 × 120) / 11 = 130,909…
+        $this->assertSame('130.91', $this->ram->fresh()->costo_promedio);
+        $this->assertSame('11.000', $this->ram->fresh()->stock_actual);
+    }
+
     public function test_cancela_devolviendo_una_parte_y_cobrando_el_resto(): void
     {
         $respuesta = $this->cancelar([

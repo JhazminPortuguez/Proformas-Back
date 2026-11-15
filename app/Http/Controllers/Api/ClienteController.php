@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Clientes\ObtenerResumenCliente;
 use App\Enums\EstadoCliente;
 use App\Enums\EstadoOrden;
+use App\Enums\EstadoProforma;
 use App\Enums\TipoProformaItem;
 use App\Http\Controllers\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
@@ -14,6 +15,8 @@ use App\Http\Resources\ClienteResource;
 use App\Http\Resources\HistorialServicioResource;
 use App\Models\Cliente;
 use App\Models\OrdenItem;
+use App\Models\OrdenServicio;
+use App\Models\Proforma;
 use App\Support\Busqueda;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -28,6 +31,8 @@ class ClienteController extends Controller
 
         $filtros = $request->validate([
             'estado' => ['nullable', Rule::enum(EstadoCliente::class)],
+            // Para los buscadores de documentos nuevos: prospectos y activos.
+            'activos' => ['nullable', 'boolean'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -45,6 +50,7 @@ class ClienteController extends Controller
                 });
             })
             ->when($filtros['estado'] ?? null, fn ($query, $estado) => $query->where('estado', $estado))
+            ->when($request->boolean('activos'), fn ($query) => $query->where('estado', '!=', EstadoCliente::Inactivo->value))
             ->orderByDesc('id')
             ->paginate($porPagina)
             ->withQueryString();
@@ -69,6 +75,31 @@ class ClienteController extends Controller
         $this->authorize('view', $cliente);
 
         return new ClienteResource($cliente->loadCount(['proformas', 'ordenes']));
+    }
+
+    /**
+     * Trabajo en curso del cliente: proformas enviadas (esperando respuesta)
+     * y órdenes pendientes, asignadas o en proceso. El front lo muestra como
+     * aviso antes de desactivarlo; desactivar no las cambia.
+     */
+    public function enCurso(Cliente $cliente)
+    {
+        $this->authorize('view', $cliente);
+
+        return response()->json([
+            'proformas' => Proforma::query()
+                ->where('cliente_id', $cliente->id)
+                ->where('estado', EstadoProforma::Enviada->value)
+                ->orderBy('numero')
+                ->pluck('numero')
+                ->values(),
+            'ordenes' => OrdenServicio::query()
+                ->where('cliente_id', $cliente->id)
+                ->activas()
+                ->orderBy('numero')
+                ->pluck('numero')
+                ->values(),
+        ]);
     }
 
     public function resumen(Cliente $cliente, ObtenerResumenCliente $resumen)

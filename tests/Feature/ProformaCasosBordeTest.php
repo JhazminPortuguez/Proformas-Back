@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Actions\Proformas\CrearProforma;
+use App\Actions\Proformas\EnviarProforma;
 use App\Enums\EstadoCliente;
 use App\Enums\EstadoSolicitud;
 use App\Enums\Rol;
@@ -12,6 +13,7 @@ use App\Models\Proforma;
 use App\Models\Servicio;
 use App\Models\SolicitudCotizacion;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -174,6 +176,81 @@ class ProformaCasosBordeTest extends TestCase
         $this->actingAs($usuario)->postJson("/api/v1/proformas/{$proforma['id']}/aceptar")->assertOk();
 
         $this->assertSame(EstadoCliente::Inactivo, $cliente->fresh()->estado);
+    }
+
+    /** P-15: no se envía con la validez vencida; aceptar una ya enviada y vencida sí. */
+    public function test_no_se_envia_una_proforma_con_la_validez_vencida_en_hora_de_bolivia(): void
+    {
+        // 10/11/2026 a las 22:00 en Bolivia: en UTC ya es 11/11.
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 22:00:00', 'America/La_Paz'));
+
+        $usuario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create();
+        $producto = Producto::factory()->create(['precio_unitario' => 10]);
+
+        $vencida = $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-11-01',
+            'fecha_validez' => '2026-11-09',
+            'items' => [['producto_id' => $producto->id, 'cantidad' => 1]],
+        ])->assertCreated()->json();
+
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$vencida['id']}/enviar")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.fecha_validez.0', EnviarProforma::MENSAJE_VENCIDA);
+        $this->assertSame('BORRADOR', Proforma::query()->find($vencida['id'])->estado->value);
+
+        // Vence hoy en Bolivia (aunque en UTC ya sea mañana): se envía.
+        $this->actingAs($usuario)->putJson("/api/v1/proformas/{$vencida['id']}", ['fecha_validez' => '2026-11-10'])
+            ->assertOk();
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$vencida['id']}/enviar")
+            ->assertOk()
+            ->assertJsonPath('estado', 'ENVIADA');
+
+        // Una vez enviada, si vence, se puede aceptar igual.
+        $this->travelTo(CarbonImmutable::parse('2026-11-20 10:00:00', 'America/La_Paz'));
+        $this->actingAs($usuario)->postJson("/api/v1/proformas/{$vencida['id']}/aceptar")
+            ->assertOk()
+            ->assertJsonPath('estado', 'ACEPTADA');
+    }
+
+    /** Punto 6: la fecha de emisión es como máximo hoy en Bolivia. */
+    public function test_la_fecha_de_emision_no_puede_ser_futura(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 22:00:00', 'America/La_Paz'));
+
+        $usuario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create();
+        $producto = Producto::factory()->create(['precio_unitario' => 10]);
+        $items = [['producto_id' => $producto->id, 'cantidad' => 1]];
+
+        $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-11-11',
+            'items' => $items,
+        ])->assertStatus(422)
+            ->assertJsonPath('errors.fecha_emision.0', 'La fecha de emisión no puede ser futura (hoy es 10/11/2026).');
+
+        // Hoy en Bolivia, aunque en UTC ya sea 11/11: válida.
+        $hoy = $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-11-10',
+            'items' => $items,
+        ])->assertCreated()->json();
+
+        $this->actingAs($usuario)->putJson("/api/v1/proformas/{$hoy['id']}", ['fecha_emision' => '2026-11-12'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('fecha_emision');
+
+        // Un borrador antiguo que ya tenía fecha futura se puede seguir editando sin cambiarla.
+        $antiguo = Proforma::factory()->create([
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-12-01',
+        ]);
+        $this->actingAs($usuario)->putJson("/api/v1/proformas/{$antiguo->id}", [
+            'fecha_emision' => '2026-12-01',
+            'observaciones' => 'Sin cambiar la fecha.',
+        ])->assertOk();
     }
 
     /**
