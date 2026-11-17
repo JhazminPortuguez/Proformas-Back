@@ -37,6 +37,23 @@ trait ValidaItemsProforma
     }
 
     /**
+     * Mensajes de decimales y máximos. El genérico de `decimal` ("debe tener
+     * 0-3 decimales") se entendía mal; el front usa estos mismos textos.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'items.*.cantidad.decimal' => 'La cantidad admite como máximo 3 decimales.',
+            'items.*.cantidad.max' => 'La cantidad no puede superar 100000.',
+            'items.*.precio_unitario.decimal' => 'El precio unitario admite como máximo 2 decimales.',
+            'descuento.decimal' => 'El descuento admite como máximo 2 decimales.',
+            'impuesto_tasa.decimal' => 'El impuesto admite como máximo 2 decimales.',
+        ];
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $items
      */
     protected function validarItemsProforma(Validator $validator, array $items): void

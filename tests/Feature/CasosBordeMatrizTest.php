@@ -60,6 +60,42 @@ class CasosBordeMatrizTest extends TestCase
         $this->assertSame(0, Proforma::query()->count());
     }
 
+    /** P-02: decimales y máximos con el mismo texto que valida el front. */
+    public function test_proforma_explica_decimales_y_maximos_en_espanol(): void
+    {
+        $usuario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create();
+
+        $errores = $this->actingAs($usuario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-11-01',
+            'descuento' => 1.234,
+            'impuesto_tasa' => 13.555,
+            'observaciones' => str_repeat('o', 2001),
+            'items' => [
+                ['tipo' => 'LIBRE', 'descripcion' => 'Uno', 'cantidad' => 1.2345, 'precio_unitario' => 10.555],
+                ['tipo' => 'LIBRE', 'descripcion' => str_repeat('d', 501), 'unidad_medida' => str_repeat('u', 31), 'cantidad' => 100001, 'precio_unitario' => 1],
+            ],
+        ])->assertStatus(422)->json('errors');
+
+        $esperados = [
+            'descuento' => 'El descuento admite como máximo 2 decimales.',
+            'impuesto_tasa' => 'El impuesto admite como máximo 2 decimales.',
+            'observaciones' => 'El campo observaciones no debe tener más de 2000 caracteres.',
+            'items.0.cantidad' => 'La cantidad admite como máximo 3 decimales.',
+            'items.0.precio_unitario' => 'El precio unitario admite como máximo 2 decimales.',
+            'items.1.cantidad' => 'La cantidad no puede superar 100000.',
+            'items.1.descripcion' => 'El campo descripción no debe tener más de 500 caracteres.',
+            'items.1.unidad_medida' => 'El campo unidad de medida no debe tener más de 30 caracteres.',
+        ];
+
+        foreach ($esperados as $campo => $mensaje) {
+            $this->assertSame($mensaje, $errores[$campo][0] ?? null, $campo);
+        }
+
+        $this->assertSame(0, Proforma::query()->count());
+    }
+
     /** P-03: precio negativo en línea libre es 422 (el precio 0 queda como decisión). */
     public function test_linea_libre_con_precio_negativo_es_422(): void
     {
