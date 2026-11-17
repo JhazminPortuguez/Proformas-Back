@@ -54,11 +54,21 @@ final class Csv
             return $valor;
         }
 
-        if ($valor !== '' && str_contains("=+-@\t\r", $valor[0])) {
+        if (self::pareceFormula($valor)) {
             return "'".$valor;
         }
 
         return $valor;
+    }
+
+    /**
+     * Un texto que Excel podría tomar como fórmula: empieza con =, +, -, @,
+     * tabulación o retorno de carro. Lo usan el CSV (apóstrofo) y el Excel
+     * (celda con quotePrefix).
+     */
+    public static function pareceFormula(string $valor): bool
+    {
+        return $valor !== '' && str_contains("=+-@\t\r", $valor[0]);
     }
 
     /** Monto con coma decimal y sin separador de miles: "1234,50". */

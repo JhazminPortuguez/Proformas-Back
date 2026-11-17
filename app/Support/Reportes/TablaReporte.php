@@ -34,7 +34,31 @@ final class TablaReporte
         public readonly array $filas,
         public readonly ?array $totales = null,
         public readonly string $vacio = 'Sin datos para los filtros elegidos.',
+        public readonly int $omitidas = 0,
     ) {}
+
+    /**
+     * Las primeras `$maximo` filas, para el PDF. Los totales no cambian
+     * (siguen siendo los de todas las filas) y `omitidas` dice cuántas
+     * quedaron fuera, para avisarlo en el documento.
+     */
+    public function limitada(int $maximo): self
+    {
+        $total = count($this->filas);
+
+        if ($total <= $maximo) {
+            return $this;
+        }
+
+        return new self(
+            $this->titulo,
+            $this->columnas,
+            array_slice($this->filas, 0, $maximo),
+            $this->totales,
+            $this->vacio,
+            $total - $maximo,
+        );
+    }
 
     /**
      * @return array{titulo: string, tipo: string}

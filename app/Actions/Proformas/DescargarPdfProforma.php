@@ -31,7 +31,11 @@ final class DescargarPdfProforma
             'empresa' => $empresa,
             'moneda' => $proforma->moneda ?: Monedas::POR_DEFECTO,
             'simbolo' => Monedas::simbolo($proforma->moneda ?: Monedas::POR_DEFECTO),
-        ])->setPaper('a4');
+        ])
+            ->setPaper('a4')
+            // Solo los glifos usados: sin esto DejaVu se incrusta entera y el
+            // PDF pesa ~860 KB (con subconjunto, ~30 KB).
+            ->setOption('isFontSubsettingEnabled', true);
 
         return $pdf->download("{$proforma->numero}.pdf");
     }

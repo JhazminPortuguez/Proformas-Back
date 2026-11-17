@@ -299,6 +299,72 @@ class ReporteExportacionTest extends TestCase
         $this->assertSame('=HYPERLINK("http://x","Hotel")', $celda->getValue());
     }
 
+    public function test_los_seis_prefijos_de_formula_quedan_como_texto_aunque_se_edite_la_celda(): void
+    {
+        // Misma regla que el CSV: =, +, -, @, tabulación y retorno.
+        $nombres = ['=1+1', '+SUM(1,2)', '-2+3', '@SUM(1)', "\tTab", "\rRetorno"];
+
+        foreach ($nombres as $i => $nombre) {
+            $cliente = Cliente::factory()->create(['nombre_razon' => $nombre]);
+            CuentaPorCobrar::factory()->create(['cliente_id' => $cliente->id, 'saldo' => 10 + $i, 'fecha_vencimiento' => '2026-12-01']);
+        }
+
+        $hoja = $this->libro($this->descargar('cobros', 'xlsx'))->getSheetByName('Cuentas con saldo');
+        $protegidos = [];
+
+        foreach ($hoja->getRowIterator(2) as $fila) {
+            $celda = $hoja->getCell('C'.$fila->getRowIndex());
+            $valor = (string) $celda->getValue();
+
+            if ($valor === '' || ! in_array($valor[0], ['=', '+', '-', '@', "\t", "\r", "\n"], true)) {
+                continue;
+            }
+
+            $this->assertSame(DataType::TYPE_STRING, $celda->getDataType(), $valor);
+            $this->assertTrue($celda->getStyle()->getQuotePrefix(), "Sin quotePrefix: {$valor}");
+            $protegidos[] = $valor[0];
+        }
+
+        // 6 nuevos más el =HYPERLINK del setUp. El retorno lo normaliza
+        // PhpSpreadsheet a salto de línea.
+        $this->assertCount(7, $protegidos);
+        // Un texto normal no lleva la marca.
+        $this->assertFalse($hoja->getStyle('A1')->getQuotePrefix());
+    }
+
+    public function test_el_pdf_recorta_el_detalle_pero_conserva_los_totales_y_avisa(): void
+    {
+        // Con ~1000 filas dompdf pedía ~580 MB y respondía 500: el PDF muestra
+        // un máximo de filas; el Excel y el CSV, todas.
+        $original = app(ReporteCobros::class)->documento(PeriodoReporte::crear(null, null));
+        $documento = $original->conTablasLimitadas(1);
+        $tabla = $documento->tablas[0];
+
+        $this->assertCount(1, $tabla->filas);
+        $this->assertSame(1, $tabla->omitidas);
+        $this->assertSame('1450.55', $tabla->totales[6]); // el total de las 2 cuentas
+
+        $html = view('reportes.pdf', [
+            'documento' => $documento,
+            'empresa' => new Empresa(['nombre' => 'Empresa']),
+            'generado' => CarbonImmutable::now('America/La_Paz'),
+        ])->render();
+
+        $this->assertStringContainsString('Se muestran las primeras 1', $html);
+        $this->assertStringContainsString('de 2', $html);
+        $this->assertStringContainsString('Bs 1.450,55', $html);
+        $this->assertSame(200, ExportarPdfReporte::MAXIMO_FILAS);
+
+        // Con menos filas que el tope no se toca nada.
+        $completa = $original->tablas[0]->limitada(5);
+        $this->assertSame($original->tablas[0], $completa);
+        $this->assertSame(0, $completa->omitidas);
+
+        // El Excel trae todas las filas.
+        $hoja = $this->libro($this->descargar('cobros', 'xlsx'))->getSheetByName('Cuentas con saldo');
+        $this->assertSame('Total: 2 cuentas', $hoja->getCell('A4')->getValue());
+    }
+
     public function test_solo_el_admin_descarga_y_los_formatos_desconocidos_se_rechazan(): void
     {
         $cliente = User::factory()->create(['rol' => Rol::Cliente, 'cliente_id' => $this->andina->id]);
