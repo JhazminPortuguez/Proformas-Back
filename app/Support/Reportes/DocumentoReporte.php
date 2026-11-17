@@ -46,6 +46,20 @@ final class DocumentoReporte
         );
     }
 
+    /** El mismo documento con cada tabla recortada a `$maximo` filas. */
+    public function conTablasLimitadas(int $maximo): self
+    {
+        return new self(
+            $this->titulo,
+            $this->clave,
+            $this->resumen,
+            array_map(fn (TablaReporte $tabla): TablaReporte => $tabla->limitada($maximo), $this->tablas),
+            $this->horizontal,
+            $this->filtros,
+            $this->nota,
+        );
+    }
+
     /**
      * @return array{etiqueta: string, valor: int|float|string|null, tipo: string}
      */

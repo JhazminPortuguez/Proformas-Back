@@ -129,6 +129,15 @@ class ProductoGestionTest extends TestCase
         $this->assertTrue($producto->fresh()->activo);
     }
 
+    public function test_el_operario_tampoco_activa_un_producto_inactivo(): void
+    {
+        $operario = User::factory()->create(['rol' => Rol::Operario]);
+        $producto = Producto::factory()->create(['activo' => false]);
+
+        $this->actingAs($operario)->putJson("/api/v1/productos/{$producto->id}", ['activo' => true])->assertForbidden();
+        $this->assertFalse($producto->fresh()->activo);
+    }
+
     public function test_no_se_elimina_si_esta_en_ordenes_proformas_o_movimientos(): void
     {
         $admin = $this->admin();

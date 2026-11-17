@@ -44,6 +44,26 @@ class ProformaPdfTest extends TestCase
         $this->assertStringStartsWith('%PDF', (string) $response->getContent());
     }
 
+    public function test_el_pdf_incrusta_solo_los_glifos_usados_y_pesa_poco(): void
+    {
+        $operario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create(['nombre_razon' => 'Compañía Ñandú y Peñaranda']);
+        $producto = Producto::factory()->create(['nombre' => 'Cañería eléctrica', 'precio_unitario' => 1250.75]);
+
+        $proforma = $this->actingAs($operario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-10-23',
+            'items' => [['producto_id' => $producto->id, 'cantidad' => 2]],
+        ])->assertCreated()->json();
+
+        $pdf = (string) $this->actingAs($operario)->get("/api/v1/proformas/{$proforma['id']}/pdf")->assertOk()->getContent();
+
+        // Con la fuente DejaVu completa pesaba ~860 KB; con subconjunto, ~30 KB.
+        $this->assertLessThan(150_000, strlen($pdf));
+        // Las fuentes de un subconjunto llevan un prefijo de 6 letras: ABCDEF+DejaVuSans.
+        $this->assertMatchesRegularExpression('#/BaseFont\s*/[A-Z]{6}\+DejaVuSans#', $pdf);
+    }
+
     public function test_cliente_no_puede_descargar_pdf(): void
     {
         $cliente = User::factory()->create(['rol' => Rol::Cliente]);

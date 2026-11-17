@@ -18,8 +18,24 @@ use Illuminate\Http\Response;
  */
 final class ExportarPdfReporte
 {
-    public function ejecutar(DocumentoReporte $documento, string $archivo): Response
+    /**
+     * Filas de detalle por tabla en el PDF. dompdf maqueta cada celda en
+     * memoria: con ~1000 filas pedía ~580 MB y ~40 s y la petición caía con
+     * un 500. Los totales siguen siendo de todas las filas y el documento
+     * avisa que el Excel y el CSV traen el detalle completo.
+     */
+    public const MAXIMO_FILAS = 200;
+
+    public function ejecutar(DocumentoReporte $documento, string $archivo, int $maximoFilas = self::MAXIMO_FILAS): Response
     {
+        $documento = $documento->conTablasLimitadas($maximoFilas);
+
+        // 200 filas piden ~120 MB: se da margen sobre el límite habitual de
+        // 128 MB solo mientras se genera el PDF.
+        if ($this->bytes((string) ini_get('memory_limit')) < 256 * 1024 * 1024) {
+            ini_set('memory_limit', '256M');
+        }
+
         $empresa = Empresa::query()->find(EmpresaActual::id())
             ?? new Empresa(['nombre' => 'Empresa']);
 
@@ -70,6 +86,23 @@ final class ExportarPdfReporte
             TablaReporte::PORCENTAJE => number_format((float) $valor, 1, ',', '.').' %',
             TablaReporte::FECHA => CarbonImmutable::parse((string) $valor)->format('d/m/Y'),
             default => (string) $valor,
+        };
+    }
+
+    /** "128M" → bytes; -1 (sin límite) cuenta como infinito. */
+    private function bytes(string $limite): float
+    {
+        if ($limite === '-1') {
+            return INF;
+        }
+
+        $numero = (float) $limite;
+
+        return match (strtoupper(substr($limite, -1))) {
+            'G' => $numero * 1024 ** 3,
+            'M' => $numero * 1024 ** 2,
+            'K' => $numero * 1024,
+            default => $numero,
         };
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support\Reportes;
 
 use App\Models\Empresa;
+use App\Support\Csv;
 use App\Support\EmpresaActual;
 use App\Support\PeriodoReporte;
 use Carbon\CarbonImmutable;
@@ -241,10 +242,20 @@ final class ExportarExcelReporte
         }
     }
 
-    /** Siempre como texto: un valor que empieza con "=" no es una fórmula. */
+    /**
+     * Siempre como texto. Si empieza con =, +, -, @, tabulación o retorno
+     * (la misma regla del CSV), la celda lleva además quotePrefix: Excel la
+     * mantiene como texto aunque el usuario la edite y pulse Enter.
+     */
     private function texto(Worksheet $hoja, int $columna, int $fila, string $valor): void
     {
-        $hoja->setCellValueExplicit(Coordinate::stringFromColumnIndex($columna).$fila, $valor, DataType::TYPE_STRING);
+        $celda = Coordinate::stringFromColumnIndex($columna).$fila;
+
+        $hoja->setCellValueExplicit($celda, $valor, DataType::TYPE_STRING);
+
+        if (Csv::pareceFormula($valor)) {
+            $hoja->getStyle($celda)->setQuotePrefix(true);
+        }
     }
 
     private function estiloEncabezado(Worksheet $hoja, string $rango): void
