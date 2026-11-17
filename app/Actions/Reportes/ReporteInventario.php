@@ -10,6 +10,8 @@ use App\Models\Producto;
 use App\Support\Csv;
 use App\Support\Dinero;
 use App\Support\PeriodoReporte;
+use App\Support\Reportes\DocumentoReporte;
+use App\Support\Reportes\TablaReporte;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -144,5 +146,67 @@ final class ReporteInventario
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Documento para PDF y Excel: el consumo del periodo (neto de
+     * devoluciones) con su total y el stock bajo de hoy.
+     */
+    public function documento(PeriodoReporte $periodo, ?int $clienteId = null, ?int $operarioId = null): DocumentoReporte
+    {
+        $consumo = $this->consumo($periodo, $clienteId, $operarioId);
+        $costoTotal = Dinero::sumar('0', ...array_column($consumo['productos'], 'costo_exacto'));
+        $stockBajo = $this->stockBajo();
+
+        return new DocumentoReporte(
+            titulo: 'Reporte de inventario',
+            clave: 'inventario',
+            resumen: [
+                DocumentoReporte::dato('Costo de lo consumido', $costoTotal, TablaReporte::DINERO),
+                DocumentoReporte::dato('Movimientos de consumo', $consumo['movimientos']),
+                DocumentoReporte::dato('Productos consumidos', count($consumo['productos'])),
+                DocumentoReporte::dato('Productos con stock bajo (hoy)', count($stockBajo)),
+            ],
+            tablas: [
+                new TablaReporte(
+                    'Consumo por producto',
+                    [
+                        TablaReporte::columna('Producto'),
+                        TablaReporte::columna('Unidad'),
+                        TablaReporte::columna('Cantidad consumida', TablaReporte::CANTIDAD),
+                        TablaReporte::columna('Costo', TablaReporte::DINERO),
+                    ],
+                    array_map(fn (array $producto): array => [
+                        $producto['nombre'],
+                        $producto['unidad_medida'],
+                        $producto['cantidad_exacta'],
+                        $producto['costo_exacto'],
+                    ], $consumo['productos']),
+                    // Las cantidades tienen unidades distintas: solo se suma el costo.
+                    $consumo['productos'] === [] ? null : ['Total', null, null, $costoTotal],
+                    'No hubo consumos en el periodo con estos filtros.',
+                ),
+                new TablaReporte(
+                    'Stock bajo (hoy)',
+                    [
+                        TablaReporte::columna('Producto'),
+                        TablaReporte::columna('Unidad'),
+                        TablaReporte::columna('Stock actual', TablaReporte::CANTIDAD),
+                        TablaReporte::columna('Stock mínimo', TablaReporte::CANTIDAD),
+                        TablaReporte::columna('Faltante', TablaReporte::CANTIDAD),
+                    ],
+                    array_map(fn (array $producto): array => [
+                        $producto['nombre'],
+                        $producto['unidad_medida'],
+                        $producto['stock_actual'],
+                        $producto['stock_minimo'],
+                        $producto['faltante'],
+                    ], $stockBajo),
+                    null,
+                    'Ningún producto está por debajo de su stock mínimo.',
+                ),
+            ],
+            nota: 'El stock bajo es una foto de hoy: no depende del periodo ni de los filtros.',
+        );
     }
 }

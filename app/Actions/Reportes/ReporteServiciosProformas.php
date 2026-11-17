@@ -12,6 +12,8 @@ use App\Models\Proforma;
 use App\Support\Csv;
 use App\Support\Dinero;
 use App\Support\PeriodoReporte;
+use App\Support\Reportes\DocumentoReporte;
+use App\Support\Reportes\TablaReporte;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -158,5 +160,56 @@ final class ReporteServiciosProformas
     {
         return Proforma::query()
             ->when($clienteId, fn (Builder $query, int $id) => $query->where('cliente_id', $id));
+    }
+
+    /**
+     * Documento para PDF y Excel: los indicadores de proformas de la pantalla
+     * y los servicios realizados, con la fila de totales.
+     */
+    public function documento(PeriodoReporte $periodo, ?int $clienteId = null): DocumentoReporte
+    {
+        $datos = $this->ejecutar($periodo, $clienteId)['proformas'];
+        $servicios = $this->serviciosExactos($periodo, $clienteId);
+
+        $cantidad = '0';
+        $monto = '0.00';
+
+        foreach ($servicios as $servicio) {
+            $cantidad = Dinero::cantidad(bcadd($cantidad, $servicio['cantidad_exacta'], Dinero::ESCALA_CANTIDAD));
+            $monto = Dinero::sumar($monto, $servicio['monto_exacto']);
+        }
+
+        return new DocumentoReporte(
+            titulo: 'Reporte de servicios y proformas',
+            clave: 'servicios',
+            resumen: [
+                DocumentoReporte::dato('Cotizado', $datos['cotizado'], TablaReporte::DINERO),
+                DocumentoReporte::dato('Proformas cotizadas', $datos['cotizadas']),
+                DocumentoReporte::dato('Aceptado', $datos['aceptado'], TablaReporte::DINERO),
+                DocumentoReporte::dato('Proformas aceptadas', $datos['aceptadas']),
+                DocumentoReporte::dato('Proformas rechazadas', $datos['rechazadas']),
+                DocumentoReporte::dato('En espera de respuesta', $datos['en_espera']),
+                DocumentoReporte::dato('Tasa de aceptación', $datos['tasa_aceptacion'], TablaReporte::PORCENTAJE),
+            ],
+            tablas: [
+                new TablaReporte(
+                    'Servicios realizados',
+                    [
+                        TablaReporte::columna('Servicio'),
+                        TablaReporte::columna('Categoría'),
+                        TablaReporte::columna('Cantidad', TablaReporte::CANTIDAD),
+                        TablaReporte::columna('Monto', TablaReporte::DINERO),
+                    ],
+                    array_map(fn (array $servicio): array => [
+                        $servicio['nombre'],
+                        $servicio['categoria'],
+                        $servicio['cantidad_exacta'],
+                        $servicio['monto_exacto'],
+                    ], $servicios),
+                    $servicios === [] ? null : ['Total', null, $cantidad, $monto],
+                    'No hay servicios realizados en el periodo con estos filtros.',
+                ),
+            ],
+        );
     }
 }

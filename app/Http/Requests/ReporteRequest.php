@@ -44,7 +44,7 @@ class ReporteRequest extends FormRequest
                 'integer',
                 Rule::exists('users', 'id')->where('empresa_id', EmpresaActual::id()),
             ],
-            'formato' => ['nullable', Rule::in(['json', 'csv'])],
+            'formato' => ['nullable', Rule::in(['json', 'csv', 'pdf', 'xlsx'])],
         ];
     }
 
@@ -98,6 +98,12 @@ class ReporteRequest extends FormRequest
 
     public function quiereCsv(): bool
     {
-        return $this->validated('formato') === 'csv';
+        return $this->formato() === 'csv';
+    }
+
+    /** json (pantalla), csv, pdf o xlsx. */
+    public function formato(): string
+    {
+        return (string) ($this->validated('formato') ?? 'json');
     }
 }

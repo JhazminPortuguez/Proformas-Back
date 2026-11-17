@@ -8,6 +8,8 @@ use App\Enums\EstadoOrden;
 use App\Models\OrdenServicio;
 use App\Support\Dinero;
 use App\Support\PeriodoReporte;
+use App\Support\Reportes\DocumentoReporte;
+use App\Support\Reportes\TablaReporte;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -248,5 +250,111 @@ final class ReporteOrdenes
             ],
             'operario' => $orden->operario?->name,
         ];
+    }
+
+    /**
+     * Documento para PDF y Excel: el resumen de la pantalla, las órdenes del
+     * periodo y el resumen por operario, cada tabla con su fila de totales.
+     */
+    public function documento(PeriodoReporte $periodo, ?int $clienteId = null, ?int $operarioId = null): DocumentoReporte
+    {
+        $datos = $this->ejecutar($periodo, $clienteId, $operarioId);
+        $ordenes = $this->ordenes($periodo, $clienteId, $operarioId);
+        $diasAtraso = 0;
+
+        $filas = $ordenes->map(function (OrdenServicio $orden) use (&$diasAtraso): array {
+            $cumplimiento = $this->cumplimiento($orden);
+            $diasAtraso += (int) ($cumplimiento['dias_atraso'] ?? 0);
+
+            return [
+                $orden->numero,
+                $orden->cliente?->nombre_razon,
+                $orden->cliente?->nit_ci,
+                $orden->operario?->name ?? 'Sin asignar',
+                $orden->estado->etiqueta(),
+                $orden->fecha_programada?->toDateString(),
+                PeriodoReporte::diaLocal($orden->fecha_fin),
+                match ($cumplimiento['estado'] ?? null) {
+                    self::A_TIEMPO => 'A tiempo',
+                    self::CON_ATRASO => 'Con atraso',
+                    self::SIN_FECHA => 'Sin fecha programada',
+                    default => '',
+                },
+                $cumplimiento['dias_atraso'] ?? null,
+            ];
+        })->values()->all();
+
+        $porOperario = $datos['por_operario'];
+        $suma = fn (string $clave): int => array_sum(array_column($porOperario, $clave));
+
+        $resumen = [DocumentoReporte::dato('Órdenes del periodo', $datos['total'])];
+
+        // Conteos: la etiqueta del estado en plural ("Pendientes", "En proceso").
+        foreach (EstadoOrden::cases() as $estado) {
+            $etiqueta = $estado === EstadoOrden::EnProceso ? $estado->etiqueta() : $estado->etiqueta().'s';
+            $resumen[] = DocumentoReporte::dato($etiqueta, $datos['por_estado'][$estado->value]);
+        }
+
+        $resumen[] = DocumentoReporte::dato('Finalizadas a tiempo', $datos['cumplimiento']['a_tiempo']);
+        $resumen[] = DocumentoReporte::dato('Finalizadas con atraso', $datos['cumplimiento']['con_atraso']);
+        $resumen[] = DocumentoReporte::dato('Finalizadas sin fecha programada', $datos['cumplimiento']['sin_fecha']);
+        $resumen[] = DocumentoReporte::dato('Cumplimiento a tiempo', $datos['cumplimiento']['porcentaje_a_tiempo'], TablaReporte::PORCENTAJE);
+
+        return new DocumentoReporte(
+            titulo: 'Reporte de órdenes de servicio',
+            clave: 'ordenes',
+            resumen: $resumen,
+            tablas: [
+                new TablaReporte(
+                    'Órdenes del periodo',
+                    [
+                        TablaReporte::columna('Código'),
+                        TablaReporte::columna('Cliente'),
+                        TablaReporte::columna('NIT/CI'),
+                        TablaReporte::columna('Operario'),
+                        TablaReporte::columna('Estado'),
+                        TablaReporte::columna('Fecha programada', TablaReporte::FECHA),
+                        TablaReporte::columna('Fecha de finalización', TablaReporte::FECHA),
+                        TablaReporte::columna('Cumplimiento'),
+                        TablaReporte::columna('Días de atraso', TablaReporte::ENTERO),
+                    ],
+                    $filas,
+                    $filas === [] ? null : ["Total: {$datos['total']} órdenes", null, null, null, null, null, null, null, $diasAtraso],
+                    'No hay órdenes en el periodo con estos filtros.',
+                ),
+                new TablaReporte(
+                    'Órdenes por operario',
+                    [
+                        TablaReporte::columna('Operario'),
+                        TablaReporte::columna('Pendientes', TablaReporte::ENTERO),
+                        TablaReporte::columna('Asignadas', TablaReporte::ENTERO),
+                        TablaReporte::columna('En proceso', TablaReporte::ENTERO),
+                        TablaReporte::columna('Finalizadas', TablaReporte::ENTERO),
+                        TablaReporte::columna('Canceladas', TablaReporte::ENTERO),
+                        TablaReporte::columna('Total', TablaReporte::ENTERO),
+                    ],
+                    array_map(fn (array $fila): array => [
+                        $fila['operario'] ?? 'Sin asignar',
+                        $fila['pendientes'],
+                        $fila['asignadas'],
+                        $fila['en_proceso'],
+                        $fila['finalizadas'],
+                        $fila['canceladas'],
+                        $fila['total'],
+                    ], $porOperario),
+                    $porOperario === [] ? null : [
+                        'Total',
+                        $suma('pendientes'),
+                        $suma('asignadas'),
+                        $suma('en_proceso'),
+                        $suma('finalizadas'),
+                        $suma('canceladas'),
+                        $suma('total'),
+                    ],
+                    'No hay órdenes en el periodo con estos filtros.',
+                ),
+            ],
+            horizontal: true,
+        );
     }
 }
