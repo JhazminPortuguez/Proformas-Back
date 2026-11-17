@@ -10,6 +10,8 @@ use App\Models\PagoCuenta;
 use App\Support\Csv;
 use App\Support\Dinero;
 use App\Support\PeriodoReporte;
+use App\Support\Reportes\DocumentoReporte;
+use App\Support\Reportes\TablaReporte;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -115,5 +117,69 @@ final class ReporteCobros
             ?: strcmp((string) $a['cuenta']->numero, (string) $b['cuenta']->numero));
 
         return $resultado;
+    }
+
+    /**
+     * Documento para PDF y Excel: lo cobrado en el periodo, el saldo y su
+     * antigüedad (foto de hoy) y las cuentas con saldo, con el total.
+     */
+    public function documento(PeriodoReporte $periodo, ?int $clienteId = null): DocumentoReporte
+    {
+        $datos = $this->ejecutar($periodo, $clienteId);
+        $cuentas = $this->saldos($clienteId)['cuentas'];
+        $saldo = Dinero::sumar('0', ...array_map(
+            fn (array $fila): string => Dinero::redondear((string) $fila['cuenta']->saldo),
+            $cuentas,
+        ));
+
+        $resumen = [
+            DocumentoReporte::dato('Cobrado en el periodo', $datos['cobrado'], TablaReporte::DINERO),
+            DocumentoReporte::dato('Pagos registrados', $datos['pagos']),
+            DocumentoReporte::dato('Saldo pendiente (hoy)', $datos['saldo_pendiente'], TablaReporte::DINERO),
+            DocumentoReporte::dato('Cuentas con saldo', $datos['cuentas_con_saldo']),
+            DocumentoReporte::dato('Cuentas vencidas', $datos['vencidas']),
+            DocumentoReporte::dato('Monto vencido', $datos['monto_vencido'], TablaReporte::DINERO),
+        ];
+
+        foreach (self::FRANJA_ETIQUETA as $clave => $etiqueta) {
+            // "Saldo al día", "Saldo más de 90 días"…
+            $franja = mb_strtolower(mb_substr($etiqueta, 0, 1)).mb_substr($etiqueta, 1);
+            $resumen[] = DocumentoReporte::dato("Saldo {$franja}", $datos['aging'][$clave] ?? 0, TablaReporte::DINERO);
+        }
+
+        return new DocumentoReporte(
+            titulo: 'Reporte de cobros',
+            clave: 'cobros',
+            resumen: $resumen,
+            tablas: [
+                new TablaReporte(
+                    'Cuentas con saldo',
+                    [
+                        TablaReporte::columna('Número'),
+                        TablaReporte::columna('Concepto'),
+                        TablaReporte::columna('Cliente'),
+                        TablaReporte::columna('NIT/CI'),
+                        TablaReporte::columna('Vencimiento', TablaReporte::FECHA),
+                        TablaReporte::columna('Días vencida', TablaReporte::ENTERO),
+                        TablaReporte::columna('Saldo', TablaReporte::DINERO),
+                        TablaReporte::columna('Antigüedad'),
+                    ],
+                    array_map(fn (array $fila): array => [
+                        $fila['cuenta']->numero,
+                        $fila['cuenta']->concepto?->etiqueta() ?? 'Servicio',
+                        $fila['cuenta']->cliente?->nombre_razon,
+                        $fila['cuenta']->cliente?->nit_ci,
+                        $fila['cuenta']->fecha_vencimiento?->toDateString(),
+                        $fila['dias_vencida'],
+                        Dinero::redondear((string) $fila['cuenta']->saldo),
+                        self::FRANJA_ETIQUETA[$fila['franja']],
+                    ], $cuentas),
+                    $cuentas === [] ? null : ['Total: '.count($cuentas).' cuentas', null, null, null, null, null, $saldo, null],
+                    'No hay cuentas con saldo pendiente.',
+                ),
+            ],
+            horizontal: true,
+            nota: 'Lo cobrado corresponde al periodo; el saldo pendiente y su antigüedad son una foto de hoy.',
+        );
     }
 }
