@@ -10,7 +10,8 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 **Cómo leer la columna de pruebas:**
 - **Back:** `Archivo::prueba`, en `tests/Feature` o `tests/Unit`, sin el prefijo `test_`.
 - **Front:** `archivo.test.tsx › "nombre"`, en `Proformas-Front/src`.
-- **Capturas:** `borde_NN` y `borde2_NN` están en `C:\VSC\capturas_revision`.
+- **Capturas:** `borde_NN`, `borde2_NN`, `borde3_NN` y `mejora1_NN` están en `C:\VSC\capturas_revision`.
+- **Playwright:** `archivo.spec.ts › "nombre"`, en `Proformas-Front/e2e`, contra una copia de la base.
 
 **Estados:**
 - **cubierto:** implementado y probado.
@@ -67,7 +68,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | ID | Módulo | Caso borde | Prioridad | Estado | Test o archivo que lo prueba |
 |---|---|---|---|---|---|
 | P-01 | Proformas | Proforma sin ítems | P0 | cubierto | `CasosBordeMatrizTest::proforma_sin_items_o_con_cantidades_invalidas_es_422`; front `proforma-form.test.tsx › "detecta cliente e ítems faltantes antes de llamar al backend"` |
-| P-02 | Proformas | Cantidad 0, negativa o con más de 3 decimales | P0 | cubierto | `CasosBordeMatrizTest::proforma_sin_items_o_con_cantidades_invalidas_es_422`, `ProformaTest::cantidad_debe_ser_mayor_que_cero`; front `proforma-form.test.tsx` (validación local antes de enviar) |
+| P-02 | Proformas | Cantidad 0, negativa o con más de 3 decimales | P0 | cubierto | `CasosBordeMatrizTest::proforma_sin_items_o_con_cantidades_invalidas_es_422`, `::proforma_explica_decimales_y_maximos_en_espanol`, `ProformaTest::cantidad_debe_ser_mayor_que_cero`; front `proforma-form.test.tsx › "rechaza más de 3 decimales en la cantidad…"` (mismo texto que el back) |
 | P-03 | Proformas | Precio negativo o cero en línea libre | P0 | cubierto | Regla: un precio negativo da 422; una línea en Bs 0 (cortesía o garantía) se permite si el total de la proforma no es Bs 0 (P-08). `CasosBordeMatrizTest::linea_libre_con_precio_negativo_es_422`, `::linea_en_cero_se_permite_si_el_total_no_es_cero`; front `proforma-form.test.tsx` |
 | P-04 | Proformas | Servicio o material repetido | P1 | cubierto | Regla: se permite repetir, y el formulario avisa sin bloquear ("Hay ítems repetidos: … (2 veces)"). `ProformaItemTest::permite_dos_lineas_del_mismo_producto`; front `casos-borde.test.ts › itemsRepetidos`, `casos-borde-proformas.test.tsx › "avisa sin bloquear cuando el mismo material está en dos líneas"`; captura `borde3_04` |
 | P-05 | Proformas | Descuento mayor al subtotal | P0 | cubierto | `ProformaTest::descuento_no_puede_superar_subtotal`; front: el 422 se muestra junto al campo de descuento (`use-form-errors`) |
@@ -148,15 +149,15 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | R-04 | Reportes | Canceladas, pagos anulados o registros inactivos | P0 | cubierto | `DashboardTest::pagos_anulados_y_de_meses_anteriores_no_suman…`, `::orden_cancelada_no_suma_en_servicios_mas_solicitados`, `ClienteHistorialTest::servicios_pagina_y_ordena_excluyendo_ordenes_canceladas`; el consumo es neto de devoluciones (`CancelarOrdenConMaterialesTest::cancela_devolviendo_una_parte…`); front `reporte-*.test.tsx` muestra lo que entrega el back |
 | R-05 | Reportes | CSV con `=`, `+`, `-`, `@` al inicio | P0 | cubierto | `app/Support/Csv.php::celda()`. `CsvTest::antepone_apostrofo_a_texto_que_empieza_como_formula`, `::no_toca_numeros_ni_texto_normal`, `ReporteCobrosTest::csv_neutraliza_formulas_en_textos_del_cliente`. Front: el CSV se genera en el back; el enlace solo lo descarga |
 | R-06 | Reportes | CSV con acentos, ñ y saltos de línea | P1 | cubierto | UTF-8 con BOM y `fputcsv` con comillas: `ReporteCobrosTest::exporta_las_cuentas_con_saldo_en_csv` ("Más de 90 días", "Cancelación"). Un salto de línea dentro de una celda queda entre comillas por `fputcsv` |
-| R-07 | Reportes | Usuario sin permiso abre un reporte | P0 | cubierto | `ReportesAccesoTest::el_operario_recibe_403`, `::el_cliente_recibe_403`, `::sin_sesion_recibe_401`; front `reportes.test.ts` (el menú solo muestra Reportes al admin) |
+| R-07 | Reportes | Usuario sin permiso abre un reporte | P0 | cubierto | `ReportesAccesoTest::el_operario_recibe_403`, `::el_cliente_recibe_403`, `::sin_sesion_recibe_401`; front `reportes.test.ts` (el menú solo muestra Reportes al admin); Playwright `permisos.spec.ts › "el operario no entra a Reportes, Usuarios ni Configuración"` |
 | R-08 | Reportes | Datos de otra empresa en los filtros | P0 | cubierto | `CasosBordeMatrizTest::filtro_de_reporte_con_cliente_de_otra_empresa_es_422` (los 5 reportes), `ReporteOrdenesTest::valida_el_rango_y_los_filtros`, `ReportesAccesoTest::el_filtro_de_clientes_solo_envia_id_nombre_y_nit`; front: el filtro solo ofrece clientes de la empresa |
 
 ## 17.9 Portal del cliente
 
 | ID | Módulo | Caso borde | Prioridad | Estado | Test o archivo que lo prueba |
 |---|---|---|---|---|---|
-| U-01 | Portal | Solicitud o proforma de otro cliente por ID | P0 | cubierto | `PortalTest::detalle_y_pdf_de_otro_cliente_responden_404`, `::listados_solo_traen_datos_del_propio_cliente`; front: el detalle del portal muestra "no encontrado" ante un 404 |
-| U-02 | Portal | PDF ajeno | P0 | cubierto | `PortalTest::detalle_y_pdf_de_otro_cliente_responden_404`, `ProformaPdfTest::cliente_no_puede_descargar_pdf` |
+| U-01 | Portal | Solicitud o proforma de otro cliente por ID | P0 | cubierto | `PortalTest::detalle_y_pdf_de_otro_cliente_responden_404`, `::listados_solo_traen_datos_del_propio_cliente`; front: el detalle del portal muestra "no encontrado" ante un 404; Playwright `permisos.spec.ts › "un cliente no ve las proformas ni las solicitudes de otro cliente"` |
+| U-02 | Portal | PDF ajeno | P0 | cubierto | `PortalTest::detalle_y_pdf_de_otro_cliente_responden_404`, `ProformaPdfTest::cliente_no_puede_descargar_pdf`; Playwright `permisos.spec.ts` (404 del PDF ajeno) y `portal.spec.ts` (el propio PDF se descarga) |
 | U-03 | Portal | Cliente sin vínculo o inactivo | P0 | cubierto | Igual que A-05 (decidido: el inactivo ve lo suyo y no envía solicitudes). `PortalTest::cliente_inactivo_ve_sus_datos_pero_no_envia_solicitudes`, `::cliente_sin_cliente_vinculado_recibe_403`; front `portal-componentes.test.tsx › "si el back responde 403, explica que la cuenta está inactiva"` |
 | U-04 | Portal | Solicitud sin ítems o con cantidades inválidas | P1 | cubierto | `PortalTest::valida_la_solicitud`; front `portal-componentes.test.tsx › "valida antes de enviar"`, `› "muestra los errores del servidor junto al campo"` |
 | U-05 | Portal | Cliente intenta aceptar sin estar habilitado | P1 | decidido: no se implementa | Regla: el portal no tiene aceptación (igual que P-11). `PortalTest::el_portal_no_acepta_ni_rechaza` |
@@ -173,7 +174,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | D-03 | Dashboard | Monedas mezcladas | P0 | cubierto | Regla: solo bolivianos, así que no se mezclan monedas. `ProformaTest::solo_se_crean_proformas_en_bolivianos`, `::no_se_cambia_la_moneda_de_una_proforma_a_otra_que_no_sea_bob` |
 | D-04 | UI | Doble submit o refresh durante una mutación | P1 | cubierto | Front `doble-clic.test.tsx` (5 pruebas); todos los botones de guardar, enviar, confirmar, pagar y cancelar se deshabilitan con `pending` |
 | D-05 | UI | Error 422 con un drawer abierto | P1 | cubierto | Front `use-form-errors.test.tsx › "cuenta campos y enfoca el primero inválido…"`, `pago-dialogs.test.tsx › "muestra el 422 junto al monto y enfoca el campo"`, `stock-dialogs.test.tsx › "muestra el 422 junto al campo y enfoca la cantidad"` |
-| D-06 | UI | 375 px con tabla, tablero o diálogo | P1 | cubierto | Tarjetas en el celular en vez de tablas (`ordenes-table.test.tsx › "muestra el NIT/CI también en las tarjetas del celular"`, `cliente-tabs.test.tsx`); capturas `borde_18` y `borde2_*` en el celular. Cuentas por cobrar y Proformas caben sin desplazamiento desde 1280 px (`cobros-table.test.tsx`, `proformas-table.test.tsx`, Playwright `interno.spec.ts › "casos borde…"`, capturas `borde2_10` y `borde3_05`) |
+| D-06 | UI | 375 px con tabla, tablero o diálogo | P1 | cubierto | Tarjetas en el celular en vez de tablas (`ordenes-table.test.tsx › "muestra el NIT/CI también en las tarjetas del celular"`, `cliente-tabs.test.tsx`); capturas `borde_18` y `borde2_*` en el celular. Clientes, Proformas y Cuentas por cobrar caben sin desplazamiento desde 1280 px aun con nombres largos (`clientes-table.test.tsx`, `proformas-table.test.tsx`, `cobros-table.test.tsx`; Playwright `interno.spec.ts › "el listado de clientes cabe a 1280 px…"`, `› "Cuentas por cobrar y Proformas caben a 1280 px…"`). El dashboard no se desborda a 375 px con un servicio de nombre largo (Playwright `interno.spec.ts`). Capturas `borde2_10`, `borde3_05` y `mejora1_02`–`mejora1_05` |
 | D-07 | UI | Teclado y lectores de pantalla | P1 | cubierto | Front `use-form-errors.test.tsx` (foco), tooltips por foco de teclado (`tooltips-listados.test.tsx`), anuncios con `useAnnouncer`; Playwright `e2e/interno.spec.ts` falla si React Aria avisa de controles sin etiqueta |
 
 ## Decisiones de 17.11
