@@ -93,13 +93,21 @@ class ProductoController extends Controller
 
         if ($producto->items()->exists()) {
             return response()->json([
-                'message' => 'No se puede eliminar el producto porque está incluido en proformas.',
+                'message' => 'No se puede eliminar el producto porque está incluido en proformas. Desactívalo en su lugar.',
+            ], 409);
+        }
+
+        // La FK de orden_items es nullOnDelete: sin esta guarda, borrar el
+        // producto dejaba las líneas de las órdenes sin producto.
+        if ($producto->ordenItems()->exists()) {
+            return response()->json([
+                'message' => 'No se puede eliminar el producto porque está en órdenes de servicio. Desactívalo en su lugar.',
             ], 409);
         }
 
         if ($producto->movimientos()->exists()) {
             return response()->json([
-                'message' => 'No se puede eliminar el producto porque tiene movimientos de inventario.',
+                'message' => 'No se puede eliminar el producto porque tiene movimientos de inventario. Desactívalo en su lugar.',
             ], 409);
         }
 

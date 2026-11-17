@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\MensajesProducto;
 use App\Models\Producto;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProductoRequest extends FormRequest
 {
+    use MensajesProducto;
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', Producto::class) ?? false;

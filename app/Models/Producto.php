@@ -43,6 +43,12 @@ class Producto extends Model
         return $this->hasMany(ProformaItem::class, 'producto_id');
     }
 
+    /** Líneas de órdenes de servicio con este producto (copia de la proforma). */
+    public function ordenItems(): HasMany
+    {
+        return $this->hasMany(OrdenItem::class, 'producto_id');
+    }
+
     public function movimientos(): HasMany
     {
         return $this->hasMany(MovimientoInventario::class, 'producto_id');

@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\MensajesProducto;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateProductoRequest extends FormRequest
 {
+    use MensajesProducto;
+
     public function authorize(): bool
     {
         return $this->user()?->can('update', $this->route('producto')) ?? false;
