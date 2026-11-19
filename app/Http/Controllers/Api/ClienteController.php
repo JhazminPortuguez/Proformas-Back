@@ -18,7 +18,10 @@ use App\Models\OrdenItem;
 use App\Models\OrdenServicio;
 use App\Models\Proforma;
 use App\Support\Busqueda;
+use App\Support\PeriodoReporte;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ClienteController extends Controller
@@ -149,9 +152,48 @@ class ClienteController extends Controller
     {
         $this->authorize('update', $cliente);
 
-        $cliente->update($request->validated());
+        $datos = $request->validated();
+        $version = (int) $datos['version'];
 
-        return new ClienteResource($cliente);
+        // C-05, bloqueo optimista: se guarda solo si nadie cambió el cliente
+        // desde que se abrió el formulario. La condición y el +1 van en el
+        // mismo UPDATE, así dos guardados simultáneos no pueden ganar ambos.
+        $actualizadas = Cliente::query()
+            ->whereKey($cliente->id)
+            ->where('version', $version)
+            ->update([
+                ...Arr::except($datos, 'version'),
+                'version' => DB::raw('version + 1'),
+                'updated_by' => $request->user()->id,
+                'updated_at' => now(),
+            ]);
+
+        $actual = $cliente->fresh(['actualizador:id,name']);
+
+        if ($actualizadas === 0) {
+            return response()->json([
+                'message' => $this->mensajeConflicto($actual),
+                'cliente' => new ClienteResource($actual),
+            ], 409);
+        }
+
+        return new ClienteResource($actual);
+    }
+
+    /**
+     * "Otro usuario modificó este cliente (Ana Torres, 17/11/2026 10:32)…".
+     */
+    private function mensajeConflicto(Cliente $cliente): string
+    {
+        $cuando = $cliente->updated_at
+            ?->setTimezone(PeriodoReporte::ZONA_HORARIA)
+            ->format('d/m/Y H:i');
+        $quien = $cliente->actualizador?->name;
+        $detalle = implode(', ', array_filter([$quien, $cuando]));
+        $sujeto = $quien ? 'Otro usuario modificó este cliente' : 'Este cliente cambió';
+
+        return $sujeto.($detalle !== '' ? " ({$detalle})" : '')
+            .' mientras lo editabas. Recarga para ver sus cambios; los tuyos no se guardaron.';
     }
 
     public function destroy(Cliente $cliente)

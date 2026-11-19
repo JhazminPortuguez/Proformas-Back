@@ -40,7 +40,14 @@ final class AceptarProforma
             Cliente::query()
                 ->whereKey($actual->cliente_id)
                 ->where('estado', EstadoCliente::Prospecto)
-                ->update(['estado' => EstadoCliente::Activo, 'updated_at' => now()]);
+                ->update([
+                    'estado' => EstadoCliente::Activo,
+                    // C-05: también es un cambio del cliente; un formulario
+                    // abierto antes no debe pisarlo.
+                    'version' => DB::raw('version + 1'),
+                    'updated_by' => $usuario->id,
+                    'updated_at' => now(),
+                ]);
 
             return $actual->load('cliente', 'items.producto', 'items.servicio', 'aceptador');
         });

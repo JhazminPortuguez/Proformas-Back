@@ -31,7 +31,7 @@ class AuthorizationTest extends TestCase
 
         $this->actingAs($operario)->postJson('/api/v1/clientes', ['nombre_razon' => 'Nuevo'])
             ->assertCreated();
-        $this->actingAs($operario)->putJson("/api/v1/clientes/{$cliente->id}", ['nombre_razon' => 'Editado'])
+        $this->actingAs($operario)->putJson("/api/v1/clientes/{$cliente->id}", ['nombre_razon' => 'Editado', 'version' => $cliente->fresh()->version])
             ->assertOk();
 
         // Los materiales son catálogo administrado: el operario usa línea libre.

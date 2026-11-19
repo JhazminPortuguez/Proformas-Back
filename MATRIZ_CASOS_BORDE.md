@@ -20,9 +20,9 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 
 | Estado | Casos |
 |---|---|
-| cubierto | 97 de 103, entre ellos todos los P0 |
+| cubierto | 98 de 103, entre ellos todos los P0 |
 | decidido: no se implementa | 4: P-11, U-05, O-16, U-07 |
-| pendiente | 2 (P2): C-05, D-02 |
+| pendiente | 1 (P2): D-02 |
 
 ## 17.1 Reglas transversales
 
@@ -60,7 +60,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | C-02 | Clientes | NIT/CI o email duplicado | P1 | cubierto | Decidido: no se repite el NIT/CI en la empresa (vacío y "0" no cuentan) y el mensaje nombra al cliente existente. `ClienteNitDuplicadoTest` (4 pruebas); front `cliente-form-drawer.test.tsx › "muestra junto al campo el cliente que ya tiene ese NIT/CI"`. El email del portal no se duplica: `RegistrationTest::registro_rechaza_el_correo_de_un_cliente_existente` |
 | C-03 | Clientes | Cliente inactivo en nueva proforma u orden | P1 | cubierto | Decidido: bloquear. `ProformaCasosBordeTest::no_se_crean_proformas_para_un_cliente_inactivo`, `::no_se_convierte_una_solicitud_de_un_cliente_inactivo`; front `casos-borde-proformas.test.tsx › "una proforma nueva no ofrece clientes inactivos"`. Desactivar con trabajo en curso avisa: `ClienteEnCursoTest`, `cliente-form-drawer.test.tsx › "avisa con los números…"` |
 | C-04 | Clientes | Cliente sin historial | P2 | cubierto | `ClienteHistorialTest::resumen_de_cliente_sin_historial_devuelve_ceros_y_claves_completas`; front `cliente-tabs.test.tsx › "ofrece un estado vacío claro…"` |
-| C-05 | Clientes | Dos ediciones concurrentes del mismo cliente | P2 | pendiente | Hoy gana la última escritura. `clientes` solo guarda `updated_at` (al segundo) y no guarda quién editó: no hay `updated_by`. La propuesta de versionado está en RESUMEN_CASOS_BORDE.md (17/11/2026), a la espera de aprobación |
+| C-05 | Clientes | Dos ediciones concurrentes del mismo cliente | P2 | cubierto | Bloqueo optimista: `clientes.version` sube en cada guardado (también al activar un prospecto al aceptar) y `updated_by` guarda quién. Un guardado con una versión vieja da 409: "Otro usuario modificó este cliente (nombre, dd/mm/aaaa hh:mm) mientras lo editabas…", y el formulario ofrece "Recargar datos" sin perder lo escrito. `ClienteConcurrenciaTest` (5 pruebas); front `cliente-form-drawer.test.tsx` (3 pruebas); Playwright `clientes-concurrencia.spec.ts`; capturas `c05_01`, `c05_02` |
 | C-06 | Clientes | Búsqueda con ñ o acentos y paginación | P2 | cubierto | `ClienteTest::busqueda_ignora_acentos_y_mayusculas` |
 
 ## 17.4 Proformas

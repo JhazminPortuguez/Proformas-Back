@@ -27,6 +27,20 @@ class UpdateClienteRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:150'],
             'direccion' => ['nullable', 'string', 'max:255'],
             'estado' => ['sometimes', 'required', Rule::enum(EstadoCliente::class)],
+            // C-05: la versión con la que se abrió el formulario.
+            'version' => ['required', 'integer', 'min:1'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'version.required' => 'Falta la versión del cliente. Recarga la página e intenta de nuevo.',
+            'version.integer' => 'La versión del cliente no es válida. Recarga la página e intenta de nuevo.',
+            'version.min' => 'La versión del cliente no es válida. Recarga la página e intenta de nuevo.',
         ];
     }
 

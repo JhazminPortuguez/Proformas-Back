@@ -38,7 +38,7 @@ class ClienteEnCursoTest extends TestCase
             ]);
 
         // Se permite desactivarlo; lo que está en curso sigue igual.
-        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['estado' => 'inactivo'])
+        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['estado' => 'inactivo', 'version' => $cliente->fresh()->version])
             ->assertOk();
         $this->assertSame(EstadoCliente::Inactivo, $cliente->fresh()->estado);
         $this->assertSame(2, Proforma::query()->where('estado', 'ENVIADA')->count());
