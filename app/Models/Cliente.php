@@ -6,6 +6,7 @@ use App\Enums\EstadoCliente;
 use App\Models\Concerns\PerteneceAEmpresa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Cliente extends Model
@@ -28,7 +29,14 @@ class Cliente extends Model
     {
         return [
             'estado' => EstadoCliente::class,
+            'version' => 'integer',
         ];
+    }
+
+    /** Quién guardó el cliente por última vez (C-05). */
+    public function actualizador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function proformas(): HasMany

@@ -20,6 +20,8 @@ class ClienteResource extends JsonResource
             'email' => $this->email,
             'direccion' => $this->direccion,
             'estado' => $this->estado?->value,
+            // C-05: el formulario la devuelve al guardar.
+            'version' => (int) ($this->version ?? 1),
             'empresa_id' => $this->empresa_id,
             'proformas_count' => $this->whenCounted('proformas'),
             'ordenes_count' => $this->whenCounted('ordenes'),

@@ -54,10 +54,11 @@ class ClienteNitDuplicadoTest extends TestCase
         $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", [
             'nombre_razon' => 'Nuevo nombre',
             'nit_ci' => '777',
+            'version' => $cliente->fresh()->version,
         ])->assertOk();
 
         // Cambiar al NIT de otro cliente: no.
-        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['nit_ci' => '555'])
+        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['nit_ci' => '555', 'version' => $cliente->fresh()->version])
             ->assertStatus(422)
             ->assertJsonPath('errors.nit_ci.0', 'El NIT/CI 555 ya está registrado para el cliente «Hotel Illimani».');
 
@@ -66,6 +67,7 @@ class ClienteNitDuplicadoTest extends TestCase
         $this->actingAs($admin)->putJson("/api/v1/clientes/{$gemelo->id}", [
             'nit_ci' => '555',
             'telefono' => '70000000',
+            'version' => $gemelo->fresh()->version,
         ])->assertOk();
     }
 
