@@ -64,6 +64,52 @@ class ProformaPdfTest extends TestCase
         $this->assertMatchesRegularExpression('#/BaseFont\s*/[A-Z]{6}\+DejaVuSans#', $pdf);
     }
 
+    public function test_los_montos_usan_el_mismo_formato_que_la_pantalla(): void
+    {
+        // Antes: "Bs 1,250.75" (formato inglés); la pantalla y los reportes
+        // dicen "Bs 1.250,75".
+        $operario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create();
+
+        $creada = $this->actingAs($operario)->postJson('/api/v1/proformas', [
+            'cliente_id' => $cliente->id,
+            'fecha_emision' => '2026-10-23',
+            'impuesto_tasa' => 13,
+            'descuento' => 25.5,
+            'items' => [
+                ['tipo' => 'LIBRE', 'descripcion' => 'Instalación', 'cantidad' => 2, 'precio_unitario' => 1250.75],
+                ['tipo' => 'LIBRE', 'descripcion' => 'Cable', 'cantidad' => 12.5, 'precio_unitario' => 18.4],
+            ],
+        ])->assertCreated()->json();
+
+        $proforma = Proforma::query()->with('cliente', 'items.producto', 'items.servicio', 'aceptador')->findOrFail($creada['id']);
+
+        $html = view('proformas.pdf', [
+            'proforma' => $proforma,
+            'cliente' => $proforma->cliente,
+            'items' => $proforma->items,
+            'empresa' => new Empresa(['nombre' => 'Empresa']),
+            'moneda' => 'BOB',
+            'simbolo' => 'Bs',
+        ])->render();
+
+        foreach ([
+            'Bs 1.250,75',   // precio unitario
+            'Bs 2.501,50',   // total de la línea
+            '12,5',          // cantidad con decimales
+            'Bs 2.731,50',   // subtotal: 2.501,50 + 230,00
+            '- Bs 25,50',    // descuento
+            'Impuesto (13,00 %)',
+            'Bs 351,78',     // impuesto: 13 % de 2.706,00
+            'Bs 3.057,78 BOB',
+        ] as $texto) {
+            $this->assertStringContainsString($texto, $html);
+        }
+
+        $this->assertStringNotContainsString('1,250.75', $html);
+        $this->assertStringNotContainsString('3,057.78', $html);
+    }
+
     public function test_cliente_no_puede_descargar_pdf(): void
     {
         $cliente = User::factory()->create(['rol' => Rol::Cliente]);
