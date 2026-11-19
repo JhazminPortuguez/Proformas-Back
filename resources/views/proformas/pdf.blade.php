@@ -103,9 +103,9 @@
                         <div class="muted">{{ $item->tipo?->etiqueta() }}</div>
                     </td>
                     <td>{{ $item->unidad_medida }}</td>
-                    <td class="num">{{ rtrim(rtrim(number_format((float) $item->cantidad, 3, '.', ','), '0'), '.') }}</td>
-                    <td class="num">{{ $simbolo }} {{ number_format((float) $item->precio_unitario, 2, '.', ',') }}</td>
-                    <td class="num">{{ $simbolo }} {{ number_format((float) $item->total_linea, 2, '.', ',') }}</td>
+                    <td class="num">{{ rtrim(rtrim(number_format((float) $item->cantidad, 3, ',', '.'), '0'), ',') }}</td>
+                    <td class="num">{{ $simbolo }} {{ number_format((float) $item->precio_unitario, 2, ',', '.') }}</td>
+                    <td class="num">{{ $simbolo }} {{ number_format((float) $item->total_linea, 2, ',', '.') }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -114,19 +114,19 @@
     <table class="totals">
         <tr>
             <td class="label">Subtotal</td>
-            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->subtotal, 2, '.', ',') }}</td>
+            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->subtotal, 2, ',', '.') }}</td>
         </tr>
         <tr>
             <td class="label">Descuento</td>
-            <td class="value">- {{ $simbolo }} {{ number_format((float) $proforma->descuento, 2, '.', ',') }}</td>
+            <td class="value">- {{ $simbolo }} {{ number_format((float) $proforma->descuento, 2, ',', '.') }}</td>
         </tr>
         <tr>
-            <td class="label">Impuesto ({{ number_format((float) $proforma->impuesto_tasa, 2, '.', ',') }}%)</td>
-            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->impuesto, 2, '.', ',') }}</td>
+            <td class="label">Impuesto ({{ number_format((float) $proforma->impuesto_tasa, 2, ',', '.') }} %)</td>
+            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->impuesto, 2, ',', '.') }}</td>
         </tr>
         <tr class="grand">
             <td class="label">Total</td>
-            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->total, 2, '.', ',') }} {{ $moneda }}</td>
+            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->total, 2, ',', '.') }} {{ $moneda }}</td>
         </tr>
     </table>
 
