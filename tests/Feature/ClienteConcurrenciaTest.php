@@ -70,16 +70,108 @@ class ClienteConcurrenciaTest extends TestCase
             ->assertJsonPath('version', 3);
     }
 
-    public function test_sin_version_no_se_guarda(): void
+    public function test_una_pestana_con_el_front_anterior_sin_version_recibe_428_con_un_mensaje_claro(): void
     {
         $admin = User::factory()->create(['rol' => Rol::Admin]);
         $cliente = Cliente::factory()->create(['telefono' => '111']);
 
-        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['telefono' => '999'])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.version.0', 'Falta la versión del cliente. Recarga la página e intenta de nuevo.');
+        $respuesta = $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['telefono' => '999'])
+            ->assertStatus(428)
+            ->assertJsonPath('message', 'Esta pantalla está desactualizada y no se guardó ningún cambio. Recarga la página (F5) y vuelve a editar el cliente.');
 
+        // Sin `errors`: el front no marca ningún campo, muestra el mensaje.
+        $this->assertArrayNotHasKey('errors', $respuesta->json());
         $this->assertSame('111', $cliente->fresh()->telefono);
+        $this->assertSame(1, $cliente->fresh()->version);
+
+        // Una versión inválida es el mismo caso.
+        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['telefono' => '999', 'version' => 'x'])
+            ->assertStatus(428);
+
+        // Los demás errores siguen siendo 422 por campo.
+        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['email' => 'no-es-correo', 'version' => 1])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('email');
+    }
+
+    public function test_sin_usuario_conocido_el_mensaje_dice_cuando_sin_parentesis_vacios(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-17 10:32:00', 'America/La_Paz'));
+
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $cliente = Cliente::factory()->create();
+
+        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['telefono' => '222', 'version' => 1])->assertOk();
+        // Quien guardó ya no existe (la FK pasa a null al eliminar el usuario).
+        Cliente::query()->whereKey($cliente->id)->update(['updated_by' => null]);
+
+        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['telefono' => '333', 'version' => 1])
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Otra persona modificó este cliente el 17/11/2026 a las 10:32 mientras lo editabas. Recarga para ver sus cambios; los tuyos no se guardaron.');
+    }
+
+    public function test_activar_y_desactivar_tambien_suben_la_version(): void
+    {
+        $operario = User::factory()->create(['rol' => Rol::Operario]);
+        $cliente = Cliente::factory()->create(['estado' => EstadoCliente::Activo]);
+
+        $this->actingAs($operario)->putJson("/api/v1/clientes/{$cliente->id}", ['estado' => 'inactivo', 'version' => 1])
+            ->assertOk()
+            ->assertJsonPath('version', 2);
+
+        $this->actingAs($operario)->putJson("/api/v1/clientes/{$cliente->id}", ['estado' => 'activo', 'version' => 2])
+            ->assertOk()
+            ->assertJsonPath('version', 3);
+
+        // Un formulario abierto antes de desactivar no puede reactivarlo a ciegas.
+        $this->actingAs($operario)->putJson("/api/v1/clientes/{$cliente->id}", ['estado' => 'inactivo', 'version' => 2])
+            ->assertStatus(409);
+        $this->assertSame(EstadoCliente::Activo, $cliente->fresh()->estado);
+    }
+
+    public function test_crear_y_registrarse_empiezan_en_la_version_1(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Cliente Portal',
+            'email' => 'portal@cliente.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertSuccessful();
+
+        $this->assertSame(1, Cliente::query()->where('email', 'portal@cliente.test')->value('version'));
+    }
+
+    public function test_si_otro_lo_elimino_el_guardado_da_404_y_no_lo_revive(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $cliente = Cliente::factory()->create();
+
+        $this->actingAs($admin)->deleteJson("/api/v1/clientes/{$cliente->id}")->assertNoContent();
+
+        $this->actingAs($admin)->putJson("/api/v1/clientes/{$cliente->id}", ['telefono' => '1', 'version' => 1])
+            ->assertNotFound();
+        $this->assertNull(Cliente::query()->find($cliente->id));
+    }
+
+    public function test_el_cliente_no_edita_sus_datos_ni_desde_el_portal_ni_desde_la_api_interna(): void
+    {
+        $cliente = Cliente::factory()->create(['telefono' => '111']);
+        $usuario = User::factory()->create(['rol' => Rol::Cliente, 'cliente_id' => $cliente->id]);
+
+        $this->actingAs($usuario)->putJson("/api/v1/clientes/{$cliente->id}", ['telefono' => '999', 'version' => 1])
+            ->assertForbidden();
+
+        // El portal no tiene ninguna ruta que escriba en `clientes`.
+        $escrituras = collect(app('router')->getRoutes()->getRoutes())
+            ->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'api/v1/portal'))
+            ->filter(fn ($ruta) => array_intersect($ruta->methods(), ['POST', 'PUT', 'PATCH', 'DELETE']) !== [])
+            ->map(fn ($ruta) => $ruta->uri())
+            ->values()
+            ->all();
+
+        $this->assertSame(['api/v1/portal/solicitudes'], $escrituras);
+        $this->assertSame('111', $cliente->fresh()->telefono);
+        $this->assertSame(1, $cliente->fresh()->version);
     }
 
     public function test_aceptar_una_proforma_que_activa_al_prospecto_tambien_sube_la_version(): void

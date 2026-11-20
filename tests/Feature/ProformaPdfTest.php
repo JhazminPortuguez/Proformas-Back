@@ -101,13 +101,16 @@ class ProformaPdfTest extends TestCase
             '- Bs 25,50',    // descuento
             'Impuesto (13,00 %)',
             'Bs 351,78',     // impuesto: 13 % de 2.706,00
-            'Bs 3.057,78 BOB',
+            'Bs 3.057,78</td>',
+            'Precios expresados en bolivianos (Bs).',
         ] as $texto) {
             $this->assertStringContainsString($texto, $html);
         }
 
         $this->assertStringNotContainsString('1,250.75', $html);
         $this->assertStringNotContainsString('3,057.78', $html);
+        // La moneda no se repite: nada de "Bs 3.057,78 BOB".
+        $this->assertStringNotContainsString('BOB', $html);
     }
 
     public function test_cliente_no_puede_descargar_pdf(): void

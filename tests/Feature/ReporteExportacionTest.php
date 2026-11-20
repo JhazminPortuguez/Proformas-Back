@@ -219,7 +219,7 @@ class ReporteExportacionTest extends TestCase
         $this->assertEqualsWithDelta($pantalla['saldo_pendiente'], $hoja->getCell("G{$totales}")->getValue(), 0.001);
 
         // Montos con 2 decimales y fechas como fecha.
-        $this->assertSame('#,##0.00', $hoja->getStyle('G2')->getNumberFormat()->getFormatCode());
+        $this->assertSame('"Bs" #,##0.00', $hoja->getStyle('G2')->getNumberFormat()->getFormatCode());
         $this->assertSame(DataType::TYPE_NUMERIC, $hoja->getCell('G2')->getDataType());
         $this->assertSame('dd/mm/yyyy', $hoja->getStyle('E2')->getNumberFormat()->getFormatCode());
         $this->assertSame('2026-10-31', FechaExcel::excelToDateTimeObject($hoja->getCell('E2')->getValue())->format('Y-m-d'));
