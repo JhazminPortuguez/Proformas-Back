@@ -37,7 +37,7 @@
         .datos tr { page-break-inside: avoid; }
         .vacio { color: #64748b; font-style: italic; padding: 6px 0; }
         .nota { margin-top: 10px; font-size: 8.5px; color: #64748b; }
-        .aviso { margin-top: 6px; padding: 5px 8px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; font-size: 8.5px; }
+        .aviso { margin: 4px 0 6px; padding: 5px 8px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; font-size: 8.5px; }
     </style>
 </head>
 <body>
@@ -96,6 +96,14 @@
         @if ($tabla->filas === [])
             <div class="vacio">{{ $tabla->vacio }}</div>
         @else
+            {{-- Arriba de la tabla: se lee antes de recorrer las filas. --}}
+            @if ($tabla->omitidas > 0)
+                <div class="aviso">
+                    <strong>Se muestran {{ number_format(count($tabla->filas), 0, ',', '.') }}
+                    de {{ number_format(count($tabla->filas) + $tabla->omitidas, 0, ',', '.') }} filas.</strong>
+                    Descarga el Excel para ver el detalle completo. Los totales sí incluyen todas las filas.
+                </div>
+            @endif
             <table class="datos">
                 <thead>
                     <tr>
@@ -122,13 +130,6 @@
                     @endif
                 </tbody>
             </table>
-            @if ($tabla->omitidas > 0)
-                <div class="aviso">
-                    Se muestran las primeras {{ number_format(count($tabla->filas), 0, ',', '.') }}
-                    de {{ number_format(count($tabla->filas) + $tabla->omitidas, 0, ',', '.') }} filas.
-                    Los totales incluyen todas. El Excel y el CSV tienen el detalle completo.
-                </div>
-            @endif
         @endif
         </div>
     @endforeach

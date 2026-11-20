@@ -350,8 +350,8 @@ class ReporteExportacionTest extends TestCase
             'generado' => CarbonImmutable::now('America/La_Paz'),
         ])->render();
 
-        $this->assertStringContainsString('Se muestran las primeras 1', $html);
-        $this->assertStringContainsString('de 2', $html);
+        $this->assertStringContainsString('Se muestran 1', $html);
+        $this->assertStringContainsString('de 2 filas.', $html);
         $this->assertStringContainsString('Bs 1.450,55', $html);
         $this->assertSame(200, ExportarPdfReporte::MAXIMO_FILAS);
 
@@ -363,6 +363,41 @@ class ReporteExportacionTest extends TestCase
         // El Excel trae todas las filas.
         $hoja = $this->libro($this->descargar('cobros', 'xlsx'))->getSheetByName('Cuentas con saldo');
         $this->assertSame('Total: 2 cuentas', $hoja->getCell('A4')->getValue());
+    }
+
+    public function test_con_mas_de_200_filas_el_pdf_lo_dice_y_el_excel_y_el_csv_traen_todas(): void
+    {
+        // 2 cuentas del setUp + 205 nuevas = 207 cuentas con saldo.
+        CuentaPorCobrar::factory()->count(205)->create([
+            'fecha_emision' => '2026-11-01',
+            'fecha_vencimiento' => '2026-12-01',
+            'monto_total' => 10,
+            'saldo' => 10,
+        ]);
+
+        // PDF: el aviso va arriba de la tabla, con el total real de filas.
+        $documento = app(ReporteCobros::class)->documento(PeriodoReporte::crear(null, null))
+            ->conTablasLimitadas(ExportarPdfReporte::MAXIMO_FILAS);
+        $html = view('reportes.pdf', [
+            'documento' => $documento,
+            'empresa' => new Empresa(['nombre' => 'Empresa']),
+            'generado' => CarbonImmutable::now('America/La_Paz'),
+        ])->render();
+        $texto = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('Se muestran 200 de 207 filas. Descarga el Excel para ver el detalle completo.', $texto);
+        $this->assertLessThan(strpos($html, '<table class="datos">'), strpos($html, 'Se muestran 200'));
+        $this->descargar('cobros', 'pdf')->assertOk();
+
+        // Excel: las 207 filas y la fila de totales.
+        $hoja = $this->libro($this->descargar('cobros', 'xlsx'))->getSheetByName('Cuentas con saldo');
+        $this->assertSame('Total: 207 cuentas', $hoja->getCell('A209')->getValue());
+        $this->assertNotEmpty($hoja->getCell('A208')->getValue());
+
+        // CSV: encabezado + 207 filas.
+        $csv = $this->descargar('cobros', 'csv')->assertOk()->streamedContent();
+        $lineas = array_values(array_filter(explode("\n", trim($csv))));
+        $this->assertCount(208, $lineas);
     }
 
     public function test_solo_el_admin_descarga_y_los_formatos_desconocidos_se_rechazan(): void
