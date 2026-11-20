@@ -20,9 +20,9 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 
 | Estado | Casos |
 |---|---|
-| cubierto | 98 de 103, entre ellos todos los P0 |
+| cubierto | 99 de 103, entre ellos todos los P0 |
 | decidido: no se implementa | 4: P-11, U-05, O-16, U-07 |
-| pendiente | 1 (P2): D-02 |
+| pendiente | 0 |
 
 ## 17.1 Reglas transversales
 
@@ -170,7 +170,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | ID | Módulo | Caso borde | Prioridad | Estado | Test o archivo que lo prueba |
 |---|---|---|---|---|---|
 | D-01 | Dashboard | Mes sin movimientos | P1 | cubierto | `DashboardTest::operario_accede_al_dashboard_y_el_entorno_vacio_devuelve_ceros`; front `dashboard.test.ts`, `dashboard-view.test.tsx` (ceros y estados vacíos) |
-| D-02 | Dashboard | Cambio de mes mientras se visualiza | P2 | pendiente | Los datos corresponden a la consulta: el mes se calcula en hora de Bolivia al cargar (`DashboardTest`). No se refresca solo al cambiar de mes |
+| D-02 | Dashboard | Cambio de mes mientras se visualiza | P2 | cubierto | El back calcula el día y el mes en hora de Bolivia en cada consulta (`DashboardTest`). En el front, `AvisoCambioDeDia` (en el layout) revisa el día cada minuto y al volver a la pestaña: el dashboard, cuentas por cobrar, inventario y reportes del mes actual se actualizan solos; en las demás pantallas aparece "Cambió el día" o "Empezó un mes nuevo" con "Actualizar", sin perder lo escrito. Sin migración. Front `aviso-cambio-de-dia.test.tsx` (5, reloj simulado 31/10 23:59 → 01/11); Playwright `cambio-de-dia.spec.ts` (2); captura `cierre_06` |
 | D-03 | Dashboard | Monedas mezcladas | P0 | cubierto | Regla: solo bolivianos, así que no se mezclan monedas. `ProformaTest::solo_se_crean_proformas_en_bolivianos`, `::no_se_cambia_la_moneda_de_una_proforma_a_otra_que_no_sea_bob` |
 | D-04 | UI | Doble submit o refresh durante una mutación | P1 | cubierto | Front `doble-clic.test.tsx` (5 pruebas); todos los botones de guardar, enviar, confirmar, pagar y cancelar se deshabilitan con `pending` |
 | D-05 | UI | Error 422 con un drawer abierto | P1 | cubierto | Front `use-form-errors.test.tsx › "cuenta campos y enfoca el primero inválido…"`, `pago-dialogs.test.tsx › "muestra el 422 junto al monto y enfoca el campo"`, `stock-dialogs.test.tsx › "muestra el 422 junto al campo y enfoca la cantidad"` |
