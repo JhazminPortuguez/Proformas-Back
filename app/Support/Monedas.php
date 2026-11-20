@@ -25,8 +25,9 @@ final class Monedas
     {
         return match (strtoupper($moneda)) {
             'BOB' => 'Bs',
-            'USD' => '$',
-            'EUR' => '€',
+            // Igual que la pantalla (Intl es-BO): "USD 1.250,75".
+            'USD' => 'USD',
+            'EUR' => 'EUR',
             default => strtoupper($moneda),
         };
     }

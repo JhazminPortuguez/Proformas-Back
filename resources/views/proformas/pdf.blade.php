@@ -126,7 +126,7 @@
         </tr>
         <tr class="grand">
             <td class="label">Total</td>
-            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->total, 2, ',', '.') }} {{ $moneda }}</td>
+            <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->total, 2, ',', '.') }}</td>
         </tr>
     </table>
 
@@ -145,7 +145,7 @@
     @endif
 
     <div class="footer">
-        Documento generado electrónicamente. Precios expresados en {{ $moneda }}.
+        Documento generado electrónicamente. Precios expresados en {{ mb_strtolower(\App\Support\Monedas::etiqueta($moneda)) }} ({{ $simbolo }}).
         @if ($proforma->aceptada_at)
             Aceptada el {{ $proforma->aceptada_at->format('d/m/Y H:i') }}{{ $proforma->aceptador ? ' por '.$proforma->aceptador->name : '' }}.
         @endif

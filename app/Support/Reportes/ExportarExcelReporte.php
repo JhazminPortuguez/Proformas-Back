@@ -34,7 +34,7 @@ final class ExportarExcelReporte
 {
     public const TIPO_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-    private const FORMATO_DINERO = '#,##0.00';
+    private const FORMATO_DINERO = '"Bs" #,##0.00';
 
     private const FORMATO_FECHA = 'dd/mm/yyyy';
 
@@ -198,7 +198,9 @@ final class ExportarExcelReporte
             // El encabezado va en negrita: cuenta como un poco más ancho.
             $minimo = max(10, (int) ceil(mb_strlen($columna['titulo']) * 1.25));
             $ancho = min(max($dimension->getWidth(), $minimo), 60);
-            $dimension->setAutoSize(false)->setWidth($ancho + 2);
+            // El cálculo automático no cuenta el prefijo "Bs " del formato.
+            $extra = $columna['tipo'] === TablaReporte::DINERO ? 4 : 0;
+            $dimension->setAutoSize(false)->setWidth($ancho + 2 + $extra);
         }
     }
 

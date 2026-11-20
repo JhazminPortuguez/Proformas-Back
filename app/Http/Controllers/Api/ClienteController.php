@@ -189,11 +189,15 @@ class ClienteController extends Controller
             ?->setTimezone(PeriodoReporte::ZONA_HORARIA)
             ->format('d/m/Y H:i');
         $quien = $cliente->actualizador?->name;
-        $detalle = implode(', ', array_filter([$quien, $cuando]));
-        $sujeto = $quien ? 'Otro usuario modificó este cliente' : 'Este cliente cambió';
+        $final = ' mientras lo editabas. Recarga para ver sus cambios; los tuyos no se guardaron.';
 
-        return $sujeto.($detalle !== '' ? " ({$detalle})" : '')
-            .' mientras lo editabas. Recarga para ver sus cambios; los tuyos no se guardaron.';
+        if ($quien) {
+            return 'Otro usuario modificó este cliente ('.implode(', ', array_filter([$quien, $cuando])).')'.$final;
+        }
+
+        // Sin `updated_by` (por ejemplo, si se eliminó ese usuario): no se
+        // inventa un nombre ni se dejan paréntesis a medias.
+        return 'Otra persona modificó este cliente'.($cuando ? ' el '.str_replace(' ', ' a las ', $cuando) : '').$final;
     }
 
     public function destroy(Cliente $cliente)
