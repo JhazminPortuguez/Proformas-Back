@@ -70,6 +70,9 @@ class UserController extends Controller
 
         $usuario = User::create($datos);
 
+        // Lo crea el administrador: no necesita verificar el correo (parte 3).
+        $usuario->forceFill(['email_verified_at' => now()])->save();
+
         return (new UserResource($usuario->load('cliente')))
             ->response()
             ->setStatusCode(201);

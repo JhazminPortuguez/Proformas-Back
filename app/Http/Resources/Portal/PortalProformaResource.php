@@ -26,7 +26,7 @@ class PortalProformaResource extends JsonResource
         $primerItem = $this->relationLoaded('primerItem') ? $this->primerItem : null;
         $hoy = PeriodoReporte::hoy()->toDateString();
         $validez = $this->fecha_validez?->toDateString();
-        $motivoNoPuede = RespuestaPortal::motivoNoPuede($this->resource, $request->user()?->cliente);
+        $motivoNoPuede = RespuestaPortal::motivoNoPuede($this->resource, $request->user()?->cliente, $request->user());
 
         return [
             'id' => $this->id,

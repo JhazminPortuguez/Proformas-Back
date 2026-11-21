@@ -14,7 +14,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -79,6 +81,18 @@ class AuthController extends Controller
         Auth::login($usuario);
         $request->session()->regenerate();
         $request->session()->put('empresa_id', $usuario->empresa_id);
+
+        // Parte 3: enlace para verificar el correo (vence en 60 minutos). Si
+        // el correo no sale, la cuenta queda creada y puede pedir otro desde
+        // el portal.
+        try {
+            $usuario->sendEmailVerificationNotification();
+        } catch (Throwable $error) {
+            Log::error('No se pudo enviar el enlace de verificación al registrarse.', [
+                'user_id' => $usuario->id,
+                'error' => $error->getMessage(),
+            ]);
+        }
 
         return (new UserResource($usuario->load('cliente')))
             ->response()

@@ -4,14 +4,21 @@ namespace App\Models;
 
 use App\Enums\Rol;
 use App\Models\Concerns\PerteneceAEmpresa;
+use App\Notifications\VerificarCorreoCliente;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+/**
+ * Ronda A, parte 3: MustVerifyEmail. Solo se le exige al cliente (middleware
+ * `correo_verificado` en las escrituras del portal); el personal lo crea el
+ * administrador y no verifica.
+ */
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PerteneceAEmpresa;
@@ -54,6 +61,12 @@ class User extends Authenticatable
             'rol' => Rol::class,
             'activo' => 'boolean',
         ];
+    }
+
+    /** El enlace lleva al back y de vuelta al front (no a una ruta web). */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerificarCorreoCliente);
     }
 
     public function cliente(): BelongsTo
