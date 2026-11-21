@@ -7,6 +7,7 @@ namespace App\Http\Resources\Portal;
 use App\Enums\EstadoProforma;
 use App\Models\Proforma;
 use App\Support\PeriodoReporte;
+use App\Support\RespuestaPortal;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,7 @@ class PortalProformaResource extends JsonResource
         $primerItem = $this->relationLoaded('primerItem') ? $this->primerItem : null;
         $hoy = PeriodoReporte::hoy()->toDateString();
         $validez = $this->fecha_validez?->toDateString();
+        $motivoNoPuede = RespuestaPortal::motivoNoPuede($this->resource, $request->user()?->cliente);
 
         return [
             'id' => $this->id,
@@ -40,6 +42,11 @@ class PortalProformaResource extends JsonResource
             'items_count' => $this->items_count ?? ($this->relationLoaded('items') ? $this->items->count() : null),
             'primer_item' => $primerItem?->nombre ?? $primerItem?->descripcion,
             'solicitud_id' => $this->solicitud_id,
+            'aceptada_at' => $this->aceptada_at?->toISOString(),
+            'rechazada_at' => $this->rechazada_at?->toISOString(),
+            // P-11 / U-05: si puede aceptar o rechazar, y si no, por qué.
+            'puede_responder' => $this->estado === EstadoProforma::Enviada && $motivoNoPuede === null,
+            'motivo_no_puede_responder' => $motivoNoPuede,
             $this->mergeWhen($this->relationLoaded('items'), fn () => [
                 'subtotal' => (float) $this->subtotal,
                 'descuento' => (float) $this->descuento,

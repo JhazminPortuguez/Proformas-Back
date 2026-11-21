@@ -20,8 +20,8 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 
 | Estado | Casos |
 |---|---|
-| cubierto | 99 de 103, entre ellos todos los P0 |
-| decidido: no se implementa | 4: P-11, U-05, O-16, U-07 |
+| cubierto | 101 de 103, entre ellos todos los P0 |
+| decidido: no se implementa | 2: O-16, U-07 |
 | pendiente | 0 |
 
 ## 17.1 Reglas transversales
@@ -77,7 +77,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | P-08 | Proformas | Enviar proforma en Bs 0 | P0 | cubierto | `ProformaTest::no_se_envia_una_proforma_con_total_cero`, `::un_descuento_que_deja_el_total_en_cero_tampoco_se_envia`; front `envio-total-cero.test.tsx` (4 pruebas) |
 | P-09 | Proformas | Enviar, editar o aceptar en estado incorrecto | P0 | cubierto | `ProformaTest::no_se_edita_contenido_de_proforma_enviada`, `::no_se_puede_enviar_una_proforma_ya_aceptada`, `::put_generico_no_permite_cambiar_estado`; front `casos-borde-proformas.test.tsx › "si el back rechaza, el aviso dice el motivo…"` |
 | P-10 | Proformas | Aceptar o rechazar dos veces | P0 | cubierto | `ProformaTest::segunda_aceptacion_es_rechazada`; front `doble-clic.test.tsx › "confirmar aceptar proforma: una sola petición"` |
-| P-11 | Proformas | Cliente intenta aceptar desde el portal | P1 | decidido: no se implementa | Regla: solo el admin y el operario registran la aceptación; el portal no acepta ni rechaza. `PortalTest::el_portal_no_acepta_ni_rechaza` |
+| P-11 | Proformas | Cliente intenta aceptar desde el portal | P1 | cubierto | Ronda A (21 nov 2026): el cliente acepta o rechaza (motivo opcional) una proforma Enviada desde "Mis proformas", con confirmación que muestra el total. Vencida: no la acepta y ve "Esta proforma venció el dd/mm/aaaa…"; el personal sí, con aviso. Se guarda quién, cuándo y el canal (PORTAL o INTERNO); si el personal ya respondió, 409 con mensaje claro. Misma regla Prospecto → Activo. `PortalRespuestaProformaTest` (11), `responder-proforma.test.tsx`, E2E `portal-respuesta.spec.ts` |
 | P-12 | Proformas | Eliminar proforma con orden o CxC | P0 | cubierto | `DeleteGuardsTest::no_se_elimina_proforma_fuera_de_borrador` (una proforma con orden ya no está en borrador); front: el botón eliminar solo existe en borradores (`acciones_disponibles`) |
 | P-13 | Proformas | Orden desde proforma no aceptada o con orden vigente | P0 | cubierto | `OrdenServicioTest::no_crea_orden_desde_proforma_borrador_enviada_o_rechazada`, `::no_duplica_orden_vigente…`; front `crear-orden-dialog.test.tsx` |
 | P-14 | Proformas | Catálogo eliminado o desactivado después del snapshot | P1 | cubierto | `OrdenServicioTest::el_snapshot_de_items_no_cambia_si_se_modifica_la_proforma`, `ProformaCasosBordeTest::proforma_que_ya_tiene_catalogo_desactivado_se_sigue_editando_sin_cambiarlo`, `DeleteGuardsTest::no_se_elimina_servicio_incluido_en_proformas` |
@@ -160,7 +160,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | U-02 | Portal | PDF ajeno | P0 | cubierto | `PortalTest::detalle_y_pdf_de_otro_cliente_responden_404`, `ProformaPdfTest::cliente_no_puede_descargar_pdf`; Playwright `permisos.spec.ts` (404 del PDF ajeno) y `portal.spec.ts` (el propio PDF se descarga) |
 | U-03 | Portal | Cliente sin vínculo o inactivo | P0 | cubierto | Igual que A-05 (decidido: el inactivo ve lo suyo y no envía solicitudes). `PortalTest::cliente_inactivo_ve_sus_datos_pero_no_envia_solicitudes`, `::cliente_sin_cliente_vinculado_recibe_403`; front `portal-componentes.test.tsx › "si el back responde 403, explica que la cuenta está inactiva"` |
 | U-04 | Portal | Solicitud sin ítems o con cantidades inválidas | P1 | cubierto | `PortalTest::valida_la_solicitud`; front `portal-componentes.test.tsx › "valida antes de enviar"`, `› "muestra los errores del servidor junto al campo"` |
-| U-05 | Portal | Cliente intenta aceptar sin estar habilitado | P1 | decidido: no se implementa | Regla: el portal no tiene aceptación (igual que P-11). `PortalTest::el_portal_no_acepta_ni_rechaza` |
+| U-05 | Portal | Cliente intenta aceptar sin estar habilitado | P1 | cubierto | Ronda A: un cliente inactivo no acepta ni rechaza (403 y aviso en el portal); solo responde sus proformas Enviadas (otra o un borrador: 404); el personal no usa la ruta del portal y el cliente no usa la interna (403). `PortalRespuestaProformaTest::test_un_cliente_inactivo_no_acepta_ni_rechaza`, `test_solo_responde_sus_proformas_enviadas`, `test_permisos_…` |
 | U-06 | Portal | Portal sin órdenes ni estado de cuenta | P2 | cubierto | El portal muestra solicitudes y proformas, sin enlaces a módulos que no tiene (`portal-componentes.test.tsx › "muestra el menú del portal…"`) |
 | U-07 | Portal | Formulario público sin rate limit | P1 | decidido: no se implementa | Regla: no habrá formulario público; para pedir cotización hace falta cuenta. El registro tiene límite (`RegistrationTest::registro_esta_limitado_a_cinco_por_minuto_por_ip`) y las solicitudes también (`PortalTest::limita_el_envio_de_solicitudes`) |
 | U-08 | Portal | La sesión expira durante una solicitud | P1 | cubierto | Front `client.test.ts › "renueva el CSRF y reintenta una vez cuando recibe 419"`; con 401 el formulario lleva al login. El back no duplica: el límite y la validación por solicitud impiden un envío doble (`doble-clic.test.tsx › "enviar solicitud del portal…"`) |
@@ -184,7 +184,7 @@ Todas están decididas (15 nov 2026).
 | # | Decisión | Regla |
 |---|---|---|
 | 1 | Proforma vencida | No se envía; aceptar una enviada y vencida se permite con aviso (P-15) |
-| 2 | Aceptación de proforma | Solo el admin y el operario; el portal no acepta (P-11, U-05) |
+| 2 | Aceptación de proforma | Cambió en la ronda A (21 nov 2026): el cliente acepta o rechaza desde el portal si su cuenta está activa y la proforma no venció; el personal sigue registrando la respuesta (por ejemplo, tras una llamada) y crea la orden (P-11, U-05) |
 | 3 | Materiales consumidos | Se cobran porque están en la proforma; al cancelar, lo no devuelto puede cobrarse (O-14) |
 | 4 | Cancelación con consumo | DEVOLUCION al stock y cobro CANCELACION (O-14) |
 | 5 | Cancelar o reembolsar una CxC | El admin anula una cuenta sin pagos vigentes, con motivo; sin reembolsos (X-11) |

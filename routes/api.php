@@ -114,5 +114,11 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/proformas', [PortalProformaController::class, 'index']);
             Route::get('/proformas/{id}', [PortalProformaController::class, 'show'])->whereNumber('id');
             Route::get('/proformas/{id}/pdf', [PortalProformaController::class, 'pdf'])->whereNumber('id');
+            Route::post('/proformas/{id}/aceptar', [PortalProformaController::class, 'aceptar'])
+                ->whereNumber('id')
+                ->middleware('throttle:portal-respuestas');
+            Route::post('/proformas/{id}/rechazar', [PortalProformaController::class, 'rechazar'])
+                ->whereNumber('id')
+                ->middleware('throttle:portal-respuestas');
         });
 });

@@ -41,7 +41,12 @@ class ProformaResource extends JsonResource
             'enviada_at' => $this->enviada_at?->toISOString(),
             'aceptada_at' => $this->aceptada_at?->toISOString(),
             'aceptada_por' => $this->aceptada_por,
+            'aceptada_canal' => $this->aceptada_canal?->value,
             'rechazada_at' => $this->rechazada_at?->toISOString(),
+            'rechazada_por' => $this->rechazada_por,
+            'rechazada_canal' => $this->rechazada_canal?->value,
+            // Para el indicador "Aceptada sin orden" del listado.
+            'aceptada_sin_orden' => $this->estado === EstadoProforma::Aceptada && ! $this->resource->tieneOrdenVigente(),
             'motivo_rechazo' => $this->motivo_rechazo,
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,
@@ -50,7 +55,8 @@ class ProformaResource extends JsonResource
                 'items',
                 fn () => ProformaItemResource::collection($this->items)
             ),
-            'aceptador' => $this->whenLoaded('aceptador', fn () => new UserResource($this->aceptador)),
+            'aceptador' => $this->whenLoaded('aceptador', fn () => $this->aceptador ? new UserResource($this->aceptador) : null),
+            'rechazador' => $this->whenLoaded('rechazador', fn () => $this->rechazador ? new UserResource($this->rechazador) : null),
             'creado_en' => $this->created_at?->toISOString(),
             'actualizado_en' => $this->updated_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),

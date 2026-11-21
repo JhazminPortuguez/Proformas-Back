@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Portal;
 
+use App\Actions\Proformas\AceptarProforma;
 use App\Actions\Proformas\DescargarPdfProforma;
+use App\Actions\Proformas\RechazarProforma;
+use App\Enums\CanalRespuesta;
 use App\Enums\EstadoProforma;
 use App\Http\Resources\Portal\PortalProformaResource;
 use Illuminate\Http\JsonResponse;
@@ -13,8 +16,10 @@ use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 
 /**
- * Proformas del cliente: solo Enviadas, Aceptadas y Rechazadas. El portal no
- * acepta ni rechaza; para eso el cliente se comunica con la empresa.
+ * Proformas del cliente: solo Enviadas, Aceptadas y Rechazadas. Desde la
+ * ronda A (P-11 / U-05) el cliente acepta o rechaza una Enviada que no esté
+ * vencida, si su cuenta está activa. Crear la orden sigue siendo tarea del
+ * personal.
  */
 class PortalProformaController extends PortalController
 {
@@ -51,6 +56,37 @@ class PortalProformaController extends PortalController
             ->first() ?? $this->noEncontrado();
 
         return new PortalProformaResource($proforma);
+    }
+
+    public function aceptar(Request $request, int $id, AceptarProforma $aceptar): PortalProformaResource
+    {
+        $proforma = $this->proformas($request)->whereKey($id)->first() ?? $this->noEncontrado();
+
+        $aceptar->ejecutar($proforma, $request->user(), CanalRespuesta::Portal);
+
+        return $this->respuesta($request, $id);
+    }
+
+    public function rechazar(Request $request, int $id, RechazarProforma $rechazar): PortalProformaResource
+    {
+        $proforma = $this->proformas($request)->whereKey($id)->first() ?? $this->noEncontrado();
+
+        $datos = $request->validate([
+            'motivo' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'motivo.max' => 'El motivo puede tener hasta 1000 caracteres.',
+        ]);
+
+        $rechazar->ejecutar($proforma, $datos['motivo'] ?? null, $request->user(), CanalRespuesta::Portal);
+
+        return $this->respuesta($request, $id);
+    }
+
+    private function respuesta(Request $request, int $id): PortalProformaResource
+    {
+        return new PortalProformaResource(
+            $this->proformas($request)->with('items', 'primerItem')->whereKey($id)->firstOrFail()
+        );
     }
 
     public function pdf(Request $request, int $id, DescargarPdfProforma $descargar): Response
