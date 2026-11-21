@@ -99,6 +99,12 @@ class Proforma extends Model
         return $this->belongsTo(User::class, 'aceptada_por');
     }
 
+    /** Historial de envíos por correo (más reciente primero). */
+    public function eventos(): HasMany
+    {
+        return $this->hasMany(ProformaEvento::class, 'proforma_id')->latest('created_at')->latest('id');
+    }
+
     public function rechazador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rechazada_por');

@@ -56,6 +56,14 @@ class ProformaResource extends JsonResource
                 fn () => ProformaItemResource::collection($this->items)
             ),
             'aceptador' => $this->whenLoaded('aceptador', fn () => $this->aceptador ? new UserResource($this->aceptador) : null),
+            'eventos' => $this->whenLoaded('eventos', fn () => $this->eventos->map(fn ($evento) => [
+                'id' => $evento->id,
+                'tipo' => $evento->tipo->value,
+                'destinatario' => $evento->destinatario,
+                'detalle' => $evento->detalle,
+                'usuario' => $evento->usuario?->name,
+                'created_at' => $evento->created_at?->toISOString(),
+            ])->values()->all()),
             'rechazador' => $this->whenLoaded('rechazador', fn () => $this->rechazador ? new UserResource($this->rechazador) : null),
             'creado_en' => $this->created_at?->toISOString(),
             'actualizado_en' => $this->updated_at?->toISOString(),
@@ -110,6 +118,10 @@ class ProformaResource extends JsonResource
             && ! $proforma->tieneOrdenVigente()
         ) {
             $acciones[] = 'crear_orden';
+        }
+
+        if ($proforma->estado === EstadoProforma::Enviada && $user->can('reenviarCorreo', $proforma)) {
+            $acciones[] = 'reenviar_correo';
         }
 
         if ($user->can('descargarPdf', $proforma)) {

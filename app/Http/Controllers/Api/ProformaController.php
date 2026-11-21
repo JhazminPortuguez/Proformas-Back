@@ -7,6 +7,7 @@ use App\Actions\Proformas\ActualizarProforma;
 use App\Actions\Proformas\CrearProforma;
 use App\Actions\Proformas\DescargarPdfProforma;
 use App\Actions\Proformas\EliminarProforma;
+use App\Actions\Proformas\EnviarCorreoProforma;
 use App\Actions\Proformas\EnviarProforma;
 use App\Actions\Proformas\RechazarProforma;
 use App\Enums\EstadoOrden;
@@ -19,8 +20,10 @@ use App\Http\Requests\UpdateProformaRequest;
 use App\Http\Resources\ProformaResource;
 use App\Models\Proforma;
 use App\Support\Busqueda;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class ProformaController extends Controller
@@ -85,7 +88,7 @@ class ProformaController extends Controller
     {
         $this->authorize('view', $proforma);
 
-        return new ProformaResource($proforma->load('cliente', 'items.producto', 'items.servicio', 'orden', 'aceptador', 'rechazador'));
+        return new ProformaResource($proforma->load('cliente', 'items.producto', 'items.servicio', 'orden', 'aceptador', 'rechazador', 'eventos.usuario'));
     }
 
     public function update(UpdateProformaRequest $request, Proforma $proforma, ActualizarProforma $actualizar)
@@ -106,11 +109,49 @@ class ProformaController extends Controller
         return response()->noContent();
     }
 
-    public function enviar(Request $request, Proforma $proforma, EnviarProforma $enviar)
+    /**
+     * Envía la proforma y, ya confirmado el cambio de estado, la manda por
+     * correo al cliente. `correo` dice si salió o por qué no; la proforma
+     * queda Enviada en cualquier caso.
+     */
+    public function enviar(Request $request, Proforma $proforma, EnviarProforma $enviar, EnviarCorreoProforma $correo)
     {
         $this->authorize('enviar', $proforma);
 
-        return new ProformaResource($enviar->ejecutar($proforma, $request->user()));
+        $enviada = $enviar->ejecutar($proforma, $request->user());
+        $resultado = $correo->ejecutar($enviada, $request->user());
+
+        return $this->conCorreo(new ProformaResource($enviada->load('eventos.usuario')), $resultado);
+    }
+
+    public function reenviarCorreo(Request $request, Proforma $proforma, EnviarCorreoProforma $correo)
+    {
+        $this->authorize('reenviarCorreo', $proforma);
+
+        if ($proforma->estado !== EstadoProforma::Enviada) {
+            throw ValidationException::withMessages([
+                'estado' => $proforma->estado === EstadoProforma::Borrador
+                    ? 'Un borrador no se envía por correo: primero envía la proforma.'
+                    : 'Solo se reenvía por correo una proforma Enviada.',
+            ]);
+        }
+
+        $resultado = $correo->ejecutar($proforma, $request->user());
+
+        return $this->conCorreo(new ProformaResource(
+            $proforma->load('cliente', 'items.producto', 'items.servicio', 'orden', 'aceptador', 'rechazador', 'eventos.usuario')
+        ), $resultado);
+    }
+
+    /**
+     * La proforma (plana, como el resto de la API) más `correo`.
+     * `additional()` la envolvería en `data`.
+     *
+     * @param  array{enviado: bool, mensaje: string}  $correo
+     */
+    private function conCorreo(ProformaResource $recurso, array $correo): JsonResponse
+    {
+        return response()->json([...$recurso->resolve(request()), 'correo' => $correo]);
     }
 
     public function aceptar(Request $request, Proforma $proforma, AceptarProforma $aceptar)

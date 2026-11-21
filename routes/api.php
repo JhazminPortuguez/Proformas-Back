@@ -73,6 +73,8 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/inventario/ajustes', [InventarioController::class, 'ajuste']);
 
         Route::post('/proformas/{proforma}/enviar', [ProformaController::class, 'enviar']);
+        Route::post('/proformas/{proforma}/reenviar-correo', [ProformaController::class, 'reenviarCorreo'])
+            ->middleware('throttle:reenvio-correo');
         Route::post('/proformas/{proforma}/aceptar', [ProformaController::class, 'aceptar']);
         Route::post('/proformas/{proforma}/rechazar', [ProformaController::class, 'rechazar']);
         Route::get('/proformas/{proforma}/pdf', [ProformaController::class, 'pdf']);
