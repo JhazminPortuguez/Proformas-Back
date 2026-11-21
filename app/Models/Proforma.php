@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CanalRespuesta;
 use App\Enums\EstadoOrden;
 use App\Enums\EstadoProforma;
 use App\Enums\OrigenProforma;
@@ -34,7 +35,10 @@ class Proforma extends Model
         'enviada_at',
         'aceptada_at',
         'aceptada_por',
+        'aceptada_canal',
         'rechazada_at',
+        'rechazada_por',
+        'rechazada_canal',
         'motivo_rechazo',
         'origen',
         'solicitud_id',
@@ -59,6 +63,8 @@ class Proforma extends Model
             'enviada_at' => 'datetime',
             'aceptada_at' => 'datetime',
             'rechazada_at' => 'datetime',
+            'aceptada_canal' => CanalRespuesta::class,
+            'rechazada_canal' => CanalRespuesta::class,
         ];
     }
 
@@ -91,6 +97,11 @@ class Proforma extends Model
     public function aceptador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'aceptada_por');
+    }
+
+    public function rechazador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rechazada_por');
     }
 
     public function solicitud(): BelongsTo

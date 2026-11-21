@@ -4,21 +4,35 @@ declare(strict_types=1);
 
 namespace App\Actions\Proformas;
 
+use App\Enums\CanalRespuesta;
 use App\Enums\EstadoProforma;
 use App\Models\Proforma;
 use App\Models\User;
+use App\Support\RespuestaPortal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class RechazarProforma
 {
-    public function ejecutar(Proforma $proforma, string $motivo, User $usuario): Proforma
-    {
-        return DB::transaction(function () use ($proforma, $motivo, $usuario) {
+    /**
+     * El motivo es obligatorio para el personal (lo valida su request) y
+     * opcional para el cliente en el portal.
+     */
+    public function ejecutar(
+        Proforma $proforma,
+        ?string $motivo,
+        User $usuario,
+        CanalRespuesta $canal = CanalRespuesta::Interno,
+    ): Proforma {
+        return DB::transaction(function () use ($proforma, $motivo, $usuario, $canal) {
             $actual = Proforma::query()
                 ->whereKey($proforma->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ($canal === CanalRespuesta::Portal) {
+                RespuestaPortal::verificar($actual, $usuario, 'rechazar');
+            }
 
             if ($actual->estado !== EstadoProforma::Enviada) {
                 throw ValidationException::withMessages([
@@ -29,11 +43,13 @@ final class RechazarProforma
             $actual->update([
                 'estado' => EstadoProforma::Rechazada,
                 'rechazada_at' => now(),
-                'motivo_rechazo' => trim($motivo),
+                'rechazada_por' => $usuario->id,
+                'rechazada_canal' => $canal->value,
+                'motivo_rechazo' => trim((string) $motivo) === '' ? null : trim((string) $motivo),
                 'updated_by' => $usuario->id,
             ]);
 
-            return $actual->load('cliente', 'items.producto', 'items.servicio');
+            return $actual->load('cliente', 'items.producto', 'items.servicio', 'rechazador');
         });
     }
 }

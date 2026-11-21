@@ -316,12 +316,16 @@ class PortalTest extends TestCase
         $this->assertStringNotContainsString('nota interna', $respuesta->getContent());
     }
 
-    public function test_el_portal_no_acepta_ni_rechaza(): void
+    /**
+     * Desde la ronda A (P-11 / U-05) el portal acepta y rechaza; las reglas
+     * están en PortalRespuestaProformaTest. La API interna sigue cerrada al
+     * cliente, y una proforma de otro cliente responde 404.
+     */
+    public function test_el_cliente_no_usa_la_api_interna_para_responder(): void
     {
         $proforma = $this->proforma($this->clienteA, EstadoProforma::Enviada);
 
-        // En el portal no existe la ruta.
-        $this->actingAs($this->usuarioA)->postJson("/api/v1/portal/proformas/{$proforma->id}/aceptar")
+        $this->actingAs($this->usuarioB)->postJson("/api/v1/portal/proformas/{$proforma->id}/aceptar")
             ->assertNotFound();
         $this->actingAs($this->usuarioA)->postJson("/api/v1/proformas/{$proforma->id}/aceptar")->assertForbidden();
         $this->actingAs($this->usuarioA)->postJson("/api/v1/proformas/{$proforma->id}/rechazar", ['motivo' => 'x'])

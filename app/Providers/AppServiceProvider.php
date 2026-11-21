@@ -44,5 +44,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('portal-solicitudes', function (Request $request) {
             return Limit::perMinute(10)->by((string) ($request->user()?->getKey() ?? $request->ip()));
         });
+
+        // Portal: aceptar o rechazar proformas (P-11 / U-05).
+        RateLimiter::for('portal-respuestas', function (Request $request) {
+            return Limit::perMinute(10)->by('respuestas|'.($request->user()?->getKey() ?? $request->ip()));
+        });
     }
 }

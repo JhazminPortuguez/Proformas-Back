@@ -9,6 +9,7 @@ use App\Actions\Proformas\DescargarPdfProforma;
 use App\Actions\Proformas\EliminarProforma;
 use App\Actions\Proformas\EnviarProforma;
 use App\Actions\Proformas\RechazarProforma;
+use App\Enums\EstadoOrden;
 use App\Enums\EstadoProforma;
 use App\Http\Controllers\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
@@ -36,6 +37,7 @@ class ProformaController extends Controller
             'cliente_id' => ['nullable', 'integer'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'sin_orden' => ['nullable', 'boolean'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -52,6 +54,11 @@ class ProformaController extends Controller
                 });
             })
             ->when($filtros['estado'] ?? null, fn ($query, $estado) => $query->where('estado', $estado))
+            // "Aceptadas sin orden": aceptadas sin orden vigente (una orden
+            // cancelada no cuenta). Crear la orden es tarea del personal.
+            ->when($request->boolean('sin_orden'), fn ($query) => $query
+                ->where('estado', EstadoProforma::Aceptada)
+                ->whereDoesntHave('ordenes', fn ($ordenes) => $ordenes->where('estado', '!=', EstadoOrden::Cancelada)))
             ->when($filtros['cliente_id'] ?? null, fn ($query, $clienteId) => $query->where('cliente_id', $clienteId))
             ->when($filtros['desde'] ?? null, fn ($query, $desde) => $query->whereDate('fecha_emision', '>=', $desde))
             ->when($filtros['hasta'] ?? null, fn ($query, $hasta) => $query->whereDate('fecha_emision', '<=', $hasta))
@@ -78,7 +85,7 @@ class ProformaController extends Controller
     {
         $this->authorize('view', $proforma);
 
-        return new ProformaResource($proforma->load('cliente', 'items.producto', 'items.servicio', 'orden'));
+        return new ProformaResource($proforma->load('cliente', 'items.producto', 'items.servicio', 'orden', 'aceptador', 'rechazador'));
     }
 
     public function update(UpdateProformaRequest $request, Proforma $proforma, ActualizarProforma $actualizar)
