@@ -9,22 +9,28 @@ use App\Models\Proforma;
 use App\Support\EmpresaActual;
 use App\Support\Monedas;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\PDF as DocumentoPdf;
 use Illuminate\Http\Response;
 
 /**
- * PDF oficial de la proforma. Lo usan el sistema interno y el portal del
- * cliente, así ambos descargan exactamente el mismo documento.
+ * PDF oficial de la proforma. Lo usan el sistema interno, el portal del
+ * cliente y el correo, así todos tienen exactamente el mismo documento.
  */
 final class DescargarPdfProforma
 {
     public function ejecutar(Proforma $proforma): Response
+    {
+        return $this->generar($proforma)->download("{$proforma->numero}.pdf");
+    }
+
+    public function generar(Proforma $proforma): DocumentoPdf
     {
         $proforma->load('cliente', 'items.producto', 'items.servicio', 'aceptador');
 
         $empresa = Empresa::query()->find(EmpresaActual::id())
             ?? new Empresa(['nombre' => 'Empresa']);
 
-        $pdf = Pdf::loadView('proformas.pdf', [
+        return Pdf::loadView('proformas.pdf', [
             'proforma' => $proforma,
             'cliente' => $proforma->cliente,
             'items' => $proforma->items,
@@ -36,7 +42,5 @@ final class DescargarPdfProforma
             // Solo los glifos usados: sin esto DejaVu se incrusta entera y el
             // PDF pesa ~860 KB (con subconjunto, ~30 KB).
             ->setOption('isFontSubsettingEnabled', true);
-
-        return $pdf->download("{$proforma->numero}.pdf");
     }
 }

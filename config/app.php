@@ -68,6 +68,13 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | Dirección del front (Next.js): los correos enlazan al portal del cliente
+    | y a la verificación del correo con esta base.
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

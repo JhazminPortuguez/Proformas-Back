@@ -37,6 +37,12 @@ class ProformaPolicy
         return $user->rol?->puedeGestionarDatos() ?? false;
     }
 
+    /** Mismos roles que enviar (admin y operario): no cambia permisos. */
+    public function reenviarCorreo(User $user, Proforma $proforma): bool
+    {
+        return $this->enviar($user, $proforma);
+    }
+
     public function aceptar(User $user, Proforma $proforma): bool
     {
         return $user->rol?->puedeGestionarDatos() ?? false;

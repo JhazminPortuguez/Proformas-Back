@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Ordenes\AsignarOrden;
+use App\Actions\Ordenes\AvisarOrdenFinalizada;
 use App\Actions\Ordenes\CancelarOrden;
 use App\Actions\Ordenes\CerrarOrden;
 use App\Actions\Ordenes\ConsumirMaterialesOrden;
@@ -134,13 +135,20 @@ class OrdenServicioController extends Controller
         );
     }
 
-    public function finalizar(FinalizarOrdenRequest $request, OrdenServicio $orden, FinalizarOrden $finalizar)
-    {
+    public function finalizar(
+        FinalizarOrdenRequest $request,
+        OrdenServicio $orden,
+        FinalizarOrden $finalizar,
+        AvisarOrdenFinalizada $avisar,
+    ) {
         $this->authorize('finalizar', $orden);
 
-        return new OrdenResource(
-            $finalizar->ejecutar($orden, $request->user(), $request->validated('observaciones'))
-        );
+        $finalizada = $finalizar->ejecutar($orden, $request->user(), $request->validated('observaciones'));
+
+        // Ya confirmada la transacción: un fallo del correo no la deshace.
+        $avisar->ejecutar($finalizada);
+
+        return new OrdenResource($finalizada);
     }
 
     public function cancelar(CancelarOrdenRequest $request, OrdenServicio $orden, CancelarOrden $cancelar)

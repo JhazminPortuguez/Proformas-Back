@@ -45,6 +45,11 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by((string) ($request->user()?->getKey() ?? $request->ip()));
         });
 
+        // Reenviar una proforma por correo: evita mandar el mismo correo en ráfaga.
+        RateLimiter::for('reenvio-correo', function (Request $request) {
+            return Limit::perMinute(5)->by('reenvio|'.($request->user()?->getKey() ?? $request->ip()));
+        });
+
         // Portal: aceptar o rechazar proformas (P-11 / U-05).
         RateLimiter::for('portal-respuestas', function (Request $request) {
             return Limit::perMinute(10)->by('respuestas|'.($request->user()?->getKey() ?? $request->ip()));
