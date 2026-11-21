@@ -18,16 +18,22 @@ use Illuminate\Http\Exceptions\HttpResponseException;
  */
 final class RespuestaPortal
 {
+    public const MENSAJE_SIN_VERIFICAR = 'Verifica tu correo para aceptar o rechazar proformas. Revisa tu bandeja o pide un enlace nuevo con "Reenviar enlace".';
+
     public const MENSAJE_INACTIVO = 'Tu cuenta de cliente está inactiva, así que no puedes responder proformas desde el portal. Comunícate con la empresa.';
 
     /**
      * Motivo por el que el cliente no puede responder (o null si puede).
      * Lo usan el recurso del portal (para el aviso) y las acciones.
      */
-    public static function motivoNoPuede(Proforma $proforma, ?Cliente $cliente): ?string
+    public static function motivoNoPuede(Proforma $proforma, ?Cliente $cliente, ?User $usuario = null): ?string
     {
         if ($proforma->estado !== EstadoProforma::Enviada) {
             return null;
+        }
+
+        if ($usuario !== null && ! $usuario->hasVerifiedEmail()) {
+            return self::MENSAJE_SIN_VERIFICAR;
         }
 
         if ($cliente?->estado === EstadoCliente::Inactivo) {

@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\ServicioController;
 use App\Http\Controllers\Api\SolicitudController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\VerificacionCorreoController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -31,7 +32,16 @@ Route::prefix('v1')->group(function (): void {
         Route::middleware(['web', 'auth:sanctum', 'active'])->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'user']);
+            Route::post('/verificar-correo/reenviar', [VerificacionCorreoController::class, 'reenviar'])
+                ->middleware('throttle:reenvio-verificacion');
         });
+
+        // Enlace del correo de verificación: firmado y sin sesión. Lleva de
+        // vuelta al front (/verificar-correo?estado=…).
+        Route::get('/verificar-correo/{id}/{hash}', [VerificacionCorreoController::class, 'verificar'])
+            ->whereNumber('id')
+            ->middleware('throttle:6,1')
+            ->name('verificacion.verificar');
     });
 
     Route::middleware(['web', 'auth:sanctum', 'active'])->group(function (): void {
@@ -110,7 +120,7 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('/solicitudes', [PortalSolicitudController::class, 'index']);
             Route::post('/solicitudes', [PortalSolicitudController::class, 'store'])
-                ->middleware('throttle:portal-solicitudes');
+                ->middleware(['correo_verificado', 'throttle:portal-solicitudes']);
             Route::get('/solicitudes/{id}', [PortalSolicitudController::class, 'show'])->whereNumber('id');
 
             Route::get('/proformas', [PortalProformaController::class, 'index']);
@@ -118,9 +128,9 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/proformas/{id}/pdf', [PortalProformaController::class, 'pdf'])->whereNumber('id');
             Route::post('/proformas/{id}/aceptar', [PortalProformaController::class, 'aceptar'])
                 ->whereNumber('id')
-                ->middleware('throttle:portal-respuestas');
+                ->middleware(['correo_verificado', 'throttle:portal-respuestas']);
             Route::post('/proformas/{id}/rechazar', [PortalProformaController::class, 'rechazar'])
                 ->whereNumber('id')
-                ->middleware('throttle:portal-respuestas');
+                ->middleware(['correo_verificado', 'throttle:portal-respuestas']);
         });
 });

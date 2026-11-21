@@ -49,6 +49,8 @@ class PortalInicioController extends PortalController
             'proformas' => $proformas,
             'ultimo' => $this->ultimo($request),
             'puede_solicitar' => $this->puedeSolicitar($request),
+            // Parte 3: sin verificar, ve todo pero no envía ni responde.
+            'correo_verificado' => $request->user()->hasVerifiedEmail(),
         ]);
     }
 

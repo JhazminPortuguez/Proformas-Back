@@ -50,6 +50,15 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by('reenvio|'.($request->user()?->getKey() ?? $request->ip()));
         });
 
+        // "Reenviar enlace" de verificación: 3 cada 10 minutos por usuario.
+        RateLimiter::for('reenvio-verificacion', function (Request $request) {
+            return Limit::perMinutes(10, 3)
+                ->by('verificacion|'.($request->user()?->getKey() ?? $request->ip()))
+                ->response(fn (Request $request, array $headers) => response()->json([
+                    'message' => 'Ya pediste varios enlaces seguidos. Espera unos minutos y revisa tu bandeja (también la carpeta de spam) antes de pedir otro.',
+                ], 429, $headers));
+        });
+
         // Portal: aceptar o rechazar proformas (P-11 / U-05).
         RateLimiter::for('portal-respuestas', function (Request $request) {
             return Limit::perMinute(10)->by('respuestas|'.($request->user()?->getKey() ?? $request->ip()));
