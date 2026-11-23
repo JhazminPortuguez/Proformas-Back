@@ -24,7 +24,17 @@ class Empresa extends Model
         'direccion',
         'logo_path',
         'condiciones',
+        'impuesto_por_defecto',
+        'dias_validez_por_defecto',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'impuesto_por_defecto' => 'decimal:2',
+            'dias_validez_por_defecto' => 'integer',
+        ];
+    }
 
     public function users(): HasMany
     {

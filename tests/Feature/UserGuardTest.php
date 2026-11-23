@@ -29,9 +29,13 @@ class UserGuardTest extends TestCase
 
     public function test_no_se_puede_degradar_al_ultimo_admin(): void
     {
+        // Ronda B: a los administradores los gestiona el superusuario.
+        $superusuario = User::factory()->superusuario()->create();
         $admin = User::factory()->create(['rol' => Rol::Admin]);
 
-        $this->actingAs($admin)->putJson("/api/v1/users/{$admin->id}", ['rol' => 'operario'])
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$admin->id}", ['rol' => 'operario'])
+            ->assertStatus(422);
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$admin->id}", ['activo' => false])
             ->assertStatus(422);
 
         $this->assertSame(Rol::Admin, $admin->fresh()->rol);
@@ -39,15 +43,16 @@ class UserGuardTest extends TestCase
 
     public function test_un_admin_inactivo_no_cuenta_como_reemplazo_del_ultimo_admin_activo(): void
     {
+        $superusuario = User::factory()->superusuario()->create();
         $admin = User::factory()->create(['rol' => Rol::Admin]);
         $activo = User::factory()->create(['rol' => Rol::Admin]);
         User::factory()->create(['rol' => Rol::Admin, 'activo' => false]);
 
-        $this->actingAs($admin)->putJson("/api/v1/users/{$activo->id}", ['activo' => false])
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$activo->id}", ['activo' => false])
             ->assertOk();
 
-        // Queda un solo admin activo ($admin): otro admin no puede quitarle el rol.
-        $this->actingAs($activo->fresh()->forceFill(['activo' => true]))
+        // Queda un solo admin activo ($admin): no se le puede quitar el rol.
+        $this->actingAs($superusuario)
             ->putJson("/api/v1/users/{$admin->id}", ['rol' => 'operario'])
             ->assertStatus(422)
             ->assertJsonPath('message', 'No se puede quitar el rol ni desactivar al último administrador activo.');
@@ -87,7 +92,8 @@ class UserGuardTest extends TestCase
             // También como error del campo: el front muestra los errores por campo de un 422.
             ->assertJsonPath('errors.activo.0', fn (string $mensaje) => str_contains($mensaje, 'OS-2026-000007, OS-2026-000012'));
 
-        $this->actingAs($admin)->putJson("/api/v1/users/{$operario->id}", ['rol' => 'admin'])
+        $superusuario = User::factory()->superusuario()->create();
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$operario->id}", ['rol' => 'admin'])
             ->assertStatus(422)
             ->assertJsonValidationErrors('rol')
             ->assertJsonPath(
@@ -128,37 +134,44 @@ class UserGuardTest extends TestCase
             ->assertJsonPath('activo', false);
     }
 
-    public function test_admin_puede_degradar_a_otro_admin_si_quedan_dos(): void
+    public function test_superusuario_puede_degradar_a_un_admin_si_quedan_dos(): void
     {
-        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $superusuario = User::factory()->superusuario()->create();
+        User::factory()->create(['rol' => Rol::Admin]);
         $otro = User::factory()->create(['rol' => Rol::Admin]);
 
-        $this->actingAs($admin)->putJson("/api/v1/users/{$otro->id}", ['rol' => 'operario'])
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$otro->id}", ['rol' => 'operario'])
             ->assertOk()
             ->assertJsonPath('rol', 'operario');
     }
 
-    public function test_admin_no_puede_autodegradarse_aunque_haya_otro_admin(): void
+    public function test_el_admin_no_modifica_ni_su_propia_cuenta_de_administrador(): void
     {
         $admin = User::factory()->create(['rol' => Rol::Admin]);
         User::factory()->create(['rol' => Rol::Admin]);
 
-        $this->actingAs($admin)->putJson("/api/v1/users/{$admin->id}", ['rol' => 'operario'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'No puedes quitarte tu propio rol de administrador.');
+        $this->actingAs($admin)->putJson("/api/v1/users/{$admin->id}", ['rol' => 'operario'])->assertForbidden();
+        $this->actingAs($admin)->putJson("/api/v1/users/{$admin->id}", ['activo' => false])->assertForbidden();
 
         $this->assertSame(Rol::Admin, $admin->fresh()->rol);
+        $this->assertTrue($admin->fresh()->activo);
     }
 
-    public function test_admin_no_puede_desactivar_su_propia_cuenta(): void
+    public function test_superusuario_no_puede_autodegradarse_ni_desactivarse(): void
     {
-        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $superusuario = User::factory()->superusuario()->create();
+        User::factory()->superusuario()->create();
 
-        $this->actingAs($admin)->putJson("/api/v1/users/{$admin->id}", ['activo' => false])
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$superusuario->id}", ['rol' => 'admin'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'No puedes quitarte tu propio rol de superusuario.');
+
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$superusuario->id}", ['activo' => false])
             ->assertStatus(422)
             ->assertJsonPath('message', 'No puedes desactivar tu propia cuenta.');
 
-        $this->assertTrue($admin->fresh()->activo);
+        $this->assertSame(Rol::Superusuario, $superusuario->fresh()->rol);
+        $this->assertTrue($superusuario->fresh()->activo);
     }
 
     public function test_admin_asigna_rol_y_limpia_cliente_id(): void

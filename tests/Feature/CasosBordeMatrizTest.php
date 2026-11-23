@@ -24,13 +24,15 @@ class CasosBordeMatrizTest extends TestCase
     /** T-02: el cambio de rol se aplica en la siguiente petición de la misma sesión. */
     public function test_cambio_de_rol_durante_la_sesion_usa_el_rol_actual(): void
     {
-        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        // Ronda B: el rol de un administrador lo cambia el superusuario.
+        $superusuario = User::factory()->superusuario()->create();
+        User::factory()->create(['rol' => Rol::Admin]);
         $otroAdmin = User::factory()->create(['rol' => Rol::Admin]);
 
         $this->actingAs($otroAdmin)->getJson('/api/v1/users')->assertOk();
 
-        // El primer admin le quita el rol mientras la sesión sigue abierta.
-        $this->actingAs($admin)->putJson("/api/v1/users/{$otroAdmin->id}", ['rol' => 'operario'])->assertOk();
+        // El superusuario le quita el rol mientras la sesión sigue abierta.
+        $this->actingAs($superusuario)->putJson("/api/v1/users/{$otroAdmin->id}", ['rol' => 'operario'])->assertOk();
 
         $this->actingAs($otroAdmin->fresh())->getJson('/api/v1/users')->assertForbidden();
         $this->actingAs($otroAdmin->fresh())->getJson('/api/v1/clientes')->assertOk();

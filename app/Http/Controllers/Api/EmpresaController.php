@@ -17,8 +17,8 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Configuración de la empresa (pantalla /configuracion). Solo el
- * administrador; operario y cliente reciben 403.
+ * Configuración de la empresa (pantalla /configuracion). Ronda B: solo el
+ * superusuario; administrador, operario y cliente reciben 403.
  *
  * El logo se guarda en `public/logos/` porque el PDF de la proforma lo busca
  * con `public_path(logo_path)`.
@@ -29,7 +29,7 @@ class EmpresaController extends Controller
 
     public function show(Request $request): EmpresaResource
     {
-        $this->soloAdmin($request);
+        $this->soloSuperusuario($request);
 
         return new EmpresaResource($this->empresa());
     }
@@ -61,7 +61,7 @@ class EmpresaController extends Controller
 
     public function eliminarLogo(Request $request): EmpresaResource
     {
-        $this->soloAdmin($request);
+        $this->soloSuperusuario($request);
 
         $empresa = $this->empresa();
         $anterior = $empresa->logo_path;
@@ -74,7 +74,7 @@ class EmpresaController extends Controller
     /** Sirve el logo para la vista previa de la pantalla de configuración. */
     public function logo(Request $request): BinaryFileResponse
     {
-        $this->soloAdmin($request);
+        $this->soloSuperusuario($request);
 
         $ruta = $this->empresa()->logo_path;
 
@@ -83,9 +83,9 @@ class EmpresaController extends Controller
         return response()->file(public_path($ruta), ['Cache-Control' => 'private, max-age=0']);
     }
 
-    private function soloAdmin(Request $request): void
+    private function soloSuperusuario(Request $request): void
     {
-        abort_unless($request->user()?->rol === Rol::Admin, 403, 'No tienes permisos para realizar esta acción.');
+        abort_unless($request->user()?->rol === Rol::Superusuario, 403, 'No tienes permisos para realizar esta acción.');
     }
 
     private function empresa(): Empresa

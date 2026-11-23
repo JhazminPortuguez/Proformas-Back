@@ -8,14 +8,14 @@ use App\Enums\Rol;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Datos de la empresa (tabla `empresas`). Solo el administrador.
+ * Datos de la empresa (tabla `empresas`). Solo el superusuario (ronda B).
  * Las longitudes son las de las columnas reales.
  */
 class UpdateEmpresaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->rol === Rol::Admin;
+        return $this->user()?->rol === Rol::Superusuario;
     }
 
     public function rules(): array

@@ -46,9 +46,9 @@ class EmpresaConfiguracionTest extends TestCase
         return new UploadedFile($ruta, $nombre, null, null, true);
     }
 
-    private function admin(): User
+    private function superusuario(): User
     {
-        return User::factory()->admin()->create();
+        return User::factory()->superusuario()->create();
     }
 
     private function empresa(): Empresa
@@ -56,11 +56,11 @@ class EmpresaConfiguracionTest extends TestCase
         return Empresa::query()->findOrFail(1);
     }
 
-    public function test_admin_ve_los_datos_de_la_empresa(): void
+    public function test_superusuario_ve_los_datos_de_la_empresa(): void
     {
         $this->empresa()->update(['nit' => '1234567', 'telefono' => '44412345', 'condiciones' => 'Pago a 30 días']);
 
-        $this->actingAs($this->admin())->getJson('/api/v1/empresa')
+        $this->actingAs($this->superusuario())->getJson('/api/v1/empresa')
             ->assertOk()
             ->assertJsonPath('id', 1)
             ->assertJsonPath('nit', '1234567')
@@ -69,10 +69,12 @@ class EmpresaConfiguracionTest extends TestCase
             ->assertJsonPath('logo_url', null);
     }
 
-    public function test_operario_y_cliente_reciben_403_en_todo(): void
+    public function test_admin_operario_y_cliente_reciben_403_en_todo(): void
     {
         $cliente = Cliente::factory()->create();
+        // Ronda B: la configuración pasó del administrador al superusuario.
         $usuarios = [
+            User::factory()->admin()->create(),
             User::factory()->operario()->create(),
             User::factory()->cliente()->create(['cliente_id' => $cliente->id]),
         ];
@@ -96,9 +98,9 @@ class EmpresaConfiguracionTest extends TestCase
         $this->putJson('/api/v1/empresa', ['nombre' => 'X'])->assertUnauthorized();
     }
 
-    public function test_admin_actualiza_los_campos_reales(): void
+    public function test_superusuario_actualiza_los_campos_reales(): void
     {
-        $this->actingAs($this->admin())->putJson('/api/v1/empresa', [
+        $this->actingAs($this->superusuario())->putJson('/api/v1/empresa', [
             'nombre' => '  Servicios Técnicos SRL ',
             'nit' => '1020304050',
             'telefono' => '4-4412345',
@@ -123,14 +125,14 @@ class EmpresaConfiguracionTest extends TestCase
     {
         $this->empresa()->update(['telefono' => '444']);
 
-        $this->actingAs($this->admin())->putJson('/api/v1/empresa', ['nombre' => 'Empresa', 'telefono' => '  '])
+        $this->actingAs($this->superusuario())->putJson('/api/v1/empresa', ['nombre' => 'Empresa', 'telefono' => '  '])
             ->assertOk()
             ->assertJsonPath('telefono', null);
     }
 
     public function test_valida_los_datos(): void
     {
-        $this->actingAs($this->admin())->putJson('/api/v1/empresa', [
+        $this->actingAs($this->superusuario())->putJson('/api/v1/empresa', [
             'nombre' => '',
             'email' => 'no-es-correo',
             'nit' => str_repeat('9', 31),
@@ -142,7 +144,7 @@ class EmpresaConfiguracionTest extends TestCase
 
     public function test_el_cambio_se_ve_en_el_contacto_del_portal(): void
     {
-        $this->actingAs($this->admin())->putJson('/api/v1/empresa', [
+        $this->actingAs($this->superusuario())->putJson('/api/v1/empresa', [
             'nombre' => 'Empresa Demo',
             'telefono' => '44412345',
             'email' => 'contacto@empresa.test',
@@ -159,7 +161,7 @@ class EmpresaConfiguracionTest extends TestCase
 
     public function test_sube_un_logo_png_y_reemplaza_el_anterior(): void
     {
-        $admin = $this->admin();
+        $admin = $this->superusuario();
 
         $primero = $this->actingAs($admin)->post('/api/v1/empresa/logo', [
             'logo' => UploadedFile::fake()->image('logo.png', 200, 80),
@@ -186,7 +188,7 @@ class EmpresaConfiguracionTest extends TestCase
 
     public function test_rechaza_logos_que_no_son_png_ni_jpg_o_pesan_mas_de_1_mb(): void
     {
-        $admin = $this->admin();
+        $admin = $this->superusuario();
         $casos = [
             'pdf' => UploadedFile::fake()->create('logo.pdf', 10, 'application/pdf'),
             'gif' => UploadedFile::fake()->image('logo.gif'),
@@ -212,14 +214,14 @@ class EmpresaConfiguracionTest extends TestCase
 
     public function test_acepta_un_logo_de_justo_1_mb(): void
     {
-        $this->actingAs($this->admin())->post('/api/v1/empresa/logo', [
+        $this->actingAs($this->superusuario())->post('/api/v1/empresa/logo', [
             'logo' => UploadedFile::fake()->image('logo.png')->size(1024),
         ], ['Accept' => 'application/json'])->assertOk();
     }
 
     public function test_quitar_el_logo_borra_el_archivo(): void
     {
-        $admin = $this->admin();
+        $admin = $this->superusuario();
         $this->actingAs($admin)->post('/api/v1/empresa/logo', [
             'logo' => UploadedFile::fake()->image('logo.png'),
         ], ['Accept' => 'application/json'])->assertOk();
@@ -239,21 +241,22 @@ class EmpresaConfiguracionTest extends TestCase
         File::put(public_path('index.php'), '<?php // no borrar');
         $this->empresa()->update(['logo_path' => 'index.php']);
 
-        $this->actingAs($this->admin())->deleteJson('/api/v1/empresa/logo')->assertOk();
+        $this->actingAs($this->superusuario())->deleteJson('/api/v1/empresa/logo')->assertOk();
 
         $this->assertFileExists(public_path('index.php'));
     }
 
     public function test_el_logo_aparece_en_el_pdf_de_la_proforma(): void
     {
-        $admin = $this->admin();
+        $superusuario = $this->superusuario();
+        $admin = User::factory()->admin()->create();
         $proforma = Proforma::factory()->create(['estado' => EstadoProforma::Enviada]);
         ProformaItem::factory()->servicio()->create(['proforma_id' => $proforma->id]);
 
         $sinLogo = $this->actingAs($admin)->get("/api/v1/proformas/{$proforma->id}/pdf")->assertOk()->getContent();
         $this->assertStringNotContainsString('/Subtype /Image', $sinLogo);
 
-        $this->actingAs($admin)->post('/api/v1/empresa/logo', [
+        $this->actingAs($superusuario)->post('/api/v1/empresa/logo', [
             'logo' => UploadedFile::fake()->image('logo.png', 300, 100),
         ], ['Accept' => 'application/json'])->assertOk();
 

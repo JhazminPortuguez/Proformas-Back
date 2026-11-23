@@ -197,7 +197,7 @@ class VerificacionCorreoTest extends TestCase
         $this->actingAs($usuario->fresh())->postJson("/api/v1/portal/proformas/{$proforma->id}/aceptar")->assertOk();
     }
 
-    public function test_el_personal_no_necesita_verificar_y_el_admin_crea_usuarios_verificados(): void
+    public function test_el_personal_no_necesita_verificar(): void
     {
         $admin = User::factory()->unverified()->create(['rol' => Rol::Admin]);
         $operario = User::factory()->unverified()->create(['rol' => Rol::Operario]);
@@ -206,14 +206,50 @@ class VerificacionCorreoTest extends TestCase
         $this->actingAs($operario)->postJson("/api/v1/proformas/{$proforma->id}/aceptar")->assertOk();
         $this->actingAs($admin)->getJson('/api/v1/clientes')->assertOk();
 
+        // El operario que crea el admin queda verificado.
+        $this->actingAs($admin)->postJson('/api/v1/users', [
+            'name' => 'Operario nuevo',
+            'email' => 'operario@admin.bo',
+            'password' => 'Password123!',
+            'rol' => 'operario',
+        ])->assertCreated()->assertJsonPath('email_verified_at', fn ($valor) => $valor !== null);
+    }
+
+    /** Ronda B, parte 0: el usuario cliente que crea el admin también verifica. */
+    public function test_el_cliente_que_crea_el_admin_recibe_el_enlace_y_queda_sin_verificar(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
         $cliente = Cliente::factory()->create();
+
         $this->actingAs($admin)->postJson('/api/v1/users', [
             'name' => 'Cliente creado por el admin',
             'email' => 'creado@admin.bo',
             'password' => 'Password123!',
             'rol' => 'cliente',
             'cliente_id' => $cliente->id,
-        ])->assertCreated()->assertJsonPath('email_verified_at', fn ($valor) => $valor !== null);
+        ])->assertCreated()->assertJsonPath('email_verified_at', null);
+
+        $usuario = User::query()->where('email', 'creado@admin.bo')->firstOrFail();
+        $this->assertFalse($usuario->hasVerifiedEmail());
+        Notification::assertSentTo($usuario, VerificarCorreoCliente::class);
+
+        // Hasta verificar, no envía solicitudes.
+        $this->actingAs($usuario)->postJson('/api/v1/portal/solicitudes', ['descripcion' => 'Necesito un servicio'])
+            ->assertForbidden();
+
+        // Si el correo no sale, el usuario queda creado igual.
+        Notification::fake();
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP caído'));
+        $otro = Cliente::factory()->create();
+        $this->actingAs($admin)->postJson('/api/v1/users', [
+            'name' => 'Otro cliente',
+            'email' => 'otro@admin.bo',
+            'password' => 'Password123!',
+            'rol' => 'cliente',
+            'cliente_id' => $otro->id,
+        ])->assertCreated();
     }
 
     public function test_la_migracion_marca_solo_a_los_clientes_que_ya_existian(): void

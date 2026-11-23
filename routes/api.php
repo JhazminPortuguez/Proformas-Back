@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\ProformaController;
 use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\ServicioController;
+use App\Http\Controllers\Api\Sistema\EstadoSistemaController;
+use App\Http\Controllers\Api\Sistema\ParametrosController;
 use App\Http\Controllers\Api\SolicitudController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VerificacionCorreoController;
@@ -47,7 +49,15 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware(['web', 'auth:sanctum', 'active'])->group(function (): void {
         Route::get('/dashboard', DashboardController::class);
 
-        // Configuración de la empresa: solo el administrador.
+        // Ronda B: parámetros (los lee el personal, los cambia el
+        // superusuario) y estado del sistema (solo el superusuario).
+        Route::get('/parametros', [ParametrosController::class, 'show']);
+        Route::put('/parametros', [ParametrosController::class, 'update']);
+        Route::get('/sistema/estado', [EstadoSistemaController::class, 'show']);
+        Route::post('/sistema/correo-prueba', [EstadoSistemaController::class, 'correoPrueba'])
+            ->middleware('throttle:correo-prueba');
+
+        // Configuración de la empresa: solo el superusuario (ronda B).
         Route::get('/empresa', [EmpresaController::class, 'show']);
         Route::put('/empresa', [EmpresaController::class, 'update']);
         Route::get('/empresa/logo', [EmpresaController::class, 'logo']);
