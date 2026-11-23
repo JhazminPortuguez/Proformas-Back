@@ -15,7 +15,9 @@ use App\Models\User;
 use App\Support\Busqueda;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class UserController extends Controller
 {
@@ -70,8 +72,13 @@ class UserController extends Controller
 
         $usuario = User::create($datos);
 
-        // Lo crea el administrador: no necesita verificar el correo (parte 3).
-        $usuario->forceFill(['email_verified_at' => now()])->save();
+        // Ronda B, parte 0: el usuario cliente verifica su correo igual que
+        // en el registro (le llega el enlace). El personal no verifica.
+        if ($usuario->rol === Rol::Cliente) {
+            $this->enviarEnlaceDeVerificacion($usuario);
+        } else {
+            $usuario->forceFill(['email_verified_at' => now()])->save();
+        }
 
         return (new UserResource($usuario->load('cliente')))
             ->response()
@@ -154,6 +161,19 @@ class UserController extends Controller
         $user->update($datos);
 
         return new UserResource($user->fresh()->load('cliente'));
+    }
+
+    /** Si el correo no sale, el usuario queda creado y puede pedir otro desde el portal. */
+    private function enviarEnlaceDeVerificacion(User $usuario): void
+    {
+        try {
+            $usuario->sendEmailVerificationNotification();
+        } catch (Throwable $error) {
+            Log::error('No se pudo enviar el enlace de verificación al usuario creado por el administrador.', [
+                'user_id' => $usuario->id,
+                'error' => $error->getMessage(),
+            ]);
+        }
     }
 
     /**
