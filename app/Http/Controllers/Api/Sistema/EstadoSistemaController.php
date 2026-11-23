@@ -35,6 +35,9 @@ class EstadoSistemaController extends Controller
                 'nombre' => config('app.name'),
                 'version' => config('app.version'),
                 'entorno' => app()->environment(),
+                // OWASP A05: con APP_DEBUG=true los errores muestran detalles
+                // técnicos; en producción debe estar apagado.
+                'debug' => (bool) config('app.debug'),
                 'laravel' => app()->version(),
                 'php' => PHP_VERSION,
             ],

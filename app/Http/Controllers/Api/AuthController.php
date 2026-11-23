@@ -37,10 +37,19 @@ class AuthController extends Controller
             ->first();
 
         if (! $usuario || ! Hash::check($credentials['password'], $usuario->password)) {
+            // Ronda B, parte 3 (OWASP A09): los intentos fallidos quedan en el log.
+            Log::warning('Inicio de sesión fallido.', [
+                'email' => $credentials['email'],
+                'ip' => $request->ip(),
+                'existe' => $usuario !== null,
+            ]);
+
             return response()->json(['message' => 'Credenciales inválidas.'], 401);
         }
 
         if (! $usuario->activo) {
+            Log::warning('Inicio de sesión de una cuenta desactivada.', ['user_id' => $usuario->id, 'ip' => $request->ip()]);
+
             return response()->json(['message' => 'Tu cuenta está desactivada.'], 403);
         }
 

@@ -59,6 +59,11 @@ class AppServiceProvider extends ServiceProvider
                 ], 429, $headers));
         });
 
+        // Ronda B, parte 3: cambiar la propia contraseña (adivinar la actual).
+        RateLimiter::for('cambiar-password', function (Request $request) {
+            return Limit::perMinute(5)->by('password|'.($request->user()?->getKey() ?? $request->ip()));
+        });
+
         // Ronda B: "Enviar correo de prueba" del superusuario.
         RateLimiter::for('correo-prueba', function (Request $request) {
             return Limit::perMinute(3)

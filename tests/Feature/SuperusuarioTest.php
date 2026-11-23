@@ -290,12 +290,14 @@ class SuperusuarioTest extends TestCase
             'mail.mailers.smtp.password' => 'abcd efgh ijkl mnop',
             'mail.from.address' => 'empresa@gmail.com',
             'app.version' => '1.4.0',
+            'app.debug' => false,
         ]);
 
         $superusuario = User::factory()->superusuario()->create();
 
         $respuesta = $this->actingAs($superusuario)->getJson('/api/v1/sistema/estado')->assertOk()
             ->assertJsonPath('app.version', '1.4.0')
+            ->assertJsonPath('app.debug', false)
             ->assertJsonPath('correo.mailer', 'smtp')
             ->assertJsonPath('correo.configurado', true)
             ->assertJsonPath('correo.host', 'smtp.gmail.com')

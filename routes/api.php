@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CambiarPasswordController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\CuentaPorCobrarController;
 use App\Http\Controllers\Api\DashboardController;
@@ -44,6 +45,9 @@ Route::prefix('v1')->group(function (): void {
         Route::middleware(['web', 'auth:sanctum', 'active'])->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'user']);
+            // Ronda B, parte 3 (OWASP A07): cambiar la propia contraseña.
+            Route::put('/password', CambiarPasswordController::class)
+                ->middleware('throttle:cambiar-password');
             Route::post('/verificar-correo/reenviar', [VerificacionCorreoController::class, 'reenviar'])
                 ->middleware('throttle:reenvio-verificacion');
         });

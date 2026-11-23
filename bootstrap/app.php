@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CabecerasDeSeguridad;
 use App\Http\Middleware\EnsureCorreoVerificado;
 use App\Http\Middleware\EnsureDatosCompletos;
 use App\Http\Middleware\EnsureUserIsActive;
@@ -24,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // API-only: invitados nunca redirigen (no existe ruta `login`);
         // el AuthenticationException resultante se responde como 401 JSON abajo.
         $middleware->redirectGuestsTo(fn () => null);
+
+        // Ronda B, parte 3 (OWASP A05): cabeceras de seguridad en todo el back.
+        $middleware->append(CabecerasDeSeguridad::class);
 
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
