@@ -5,11 +5,13 @@ use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\CuentaPorCobrarController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EmpresaController;
+use App\Http\Controllers\Api\GoogleController;
 use App\Http\Controllers\Api\InventarioController;
 use App\Http\Controllers\Api\OrdenServicioController;
 use App\Http\Controllers\Api\PagoCuentaController;
 use App\Http\Controllers\Api\Portal\PortalCatalogoController;
 use App\Http\Controllers\Api\Portal\PortalInicioController;
+use App\Http\Controllers\Api\Portal\PortalMisDatosController;
 use App\Http\Controllers\Api\Portal\PortalProformaController;
 use App\Http\Controllers\Api\Portal\PortalSolicitudController;
 use App\Http\Controllers\Api\ProductoController;
@@ -29,6 +31,14 @@ Route::prefix('v1')->group(function (): void {
             ->middleware(['web', 'throttle:register']);
 
         Route::post('/login', [AuthController::class, 'login'])
+            ->middleware(['web', 'throttle:login']);
+
+        // Ronda B, parte 2: "Continuar con Google". El estado dice si el
+        // botón se muestra; redirect y callback usan la sesión (state).
+        Route::get('/google/estado', [GoogleController::class, 'estado']);
+        Route::get('/google/redirect', [GoogleController::class, 'redirect'])
+            ->middleware(['web', 'throttle:login']);
+        Route::get('/google/callback', [GoogleController::class, 'callback'])
             ->middleware(['web', 'throttle:login']);
 
         Route::middleware(['web', 'auth:sanctum', 'active'])->group(function (): void {
@@ -123,6 +133,8 @@ Route::prefix('v1')->group(function (): void {
         ->middleware(['web', 'auth:sanctum', 'active', 'cliente'])
         ->group(function (): void {
             Route::get('/resumen', [PortalInicioController::class, 'resumen']);
+            Route::put('/mis-datos', [PortalMisDatosController::class, 'update'])
+                ->middleware('throttle:portal-solicitudes');
             Route::get('/empresa', [PortalInicioController::class, 'empresa']);
 
             Route::get('/servicios', [PortalCatalogoController::class, 'index']);
@@ -130,7 +142,7 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('/solicitudes', [PortalSolicitudController::class, 'index']);
             Route::post('/solicitudes', [PortalSolicitudController::class, 'store'])
-                ->middleware(['correo_verificado', 'throttle:portal-solicitudes']);
+                ->middleware(['correo_verificado', 'datos_completos', 'throttle:portal-solicitudes']);
             Route::get('/solicitudes/{id}', [PortalSolicitudController::class, 'show'])->whereNumber('id');
 
             Route::get('/proformas', [PortalProformaController::class, 'index']);
