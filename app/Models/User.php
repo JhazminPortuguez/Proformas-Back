@@ -46,6 +46,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'google_id',
     ];
 
     /**
@@ -60,6 +61,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'rol' => Rol::class,
             'activo' => 'boolean',
+            'datos_pendientes' => 'boolean',
         ];
     }
 

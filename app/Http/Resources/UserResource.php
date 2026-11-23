@@ -21,6 +21,9 @@ class UserResource extends JsonResource
             'activo' => (bool) $this->activo,
             'cliente_id' => $this->cliente_id,
             'empresa_id' => $this->empresa_id,
+            // Ronda B, parte 2: cuenta creada con Google a la que le faltan
+            // el teléfono o el NIT/CI para enviar solicitudes.
+            'datos_pendientes' => (bool) $this->datos_pendientes,
             'cliente' => $this->whenLoaded('cliente', fn () => new ClienteResource($this->cliente)),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

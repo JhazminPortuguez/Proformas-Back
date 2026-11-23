@@ -51,6 +51,8 @@ class PortalInicioController extends PortalController
             'puede_solicitar' => $this->puedeSolicitar($request),
             // Parte 3: sin verificar, ve todo pero no envía ni responde.
             'correo_verificado' => $request->user()->hasVerifiedEmail(),
+            // Ronda B, parte 2: cuenta de Google sin teléfono ni NIT/CI.
+            'datos_pendientes' => (bool) $request->user()->datos_pendientes,
         ]);
     }
 

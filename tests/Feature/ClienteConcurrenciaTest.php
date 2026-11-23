@@ -163,7 +163,9 @@ class ClienteConcurrenciaTest extends TestCase
 
         // El portal no tiene ninguna ruta que edite los datos del cliente.
         // Aceptar una proforma solo cambia Prospecto → Activo (y sube la
-        // versión: PortalRespuestaProformaTest).
+        // versión: PortalRespuestaProformaTest). Ronda B: `mis-datos` solo
+        // sirve una vez, a la cuenta creada con Google que debe completar
+        // teléfono y NIT/CI (GoogleLoginTest); a este cliente le da 403.
         $escrituras = collect(app('router')->getRoutes()->getRoutes())
             ->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'api/v1/portal'))
             ->filter(fn ($ruta) => array_intersect($ruta->methods(), ['POST', 'PUT', 'PATCH', 'DELETE']) !== [])
@@ -172,10 +174,13 @@ class ClienteConcurrenciaTest extends TestCase
             ->all();
 
         $this->assertSame([
+            'api/v1/portal/mis-datos',
             'api/v1/portal/solicitudes',
             'api/v1/portal/proformas/{id}/aceptar',
             'api/v1/portal/proformas/{id}/rechazar',
         ], $escrituras);
+        $this->actingAs($usuario)->putJson('/api/v1/portal/mis-datos', ['telefono' => '71234567', 'nit_ci' => '1234567'])
+            ->assertForbidden();
         $this->assertSame('111', $cliente->fresh()->telefono);
         $this->assertSame(1, $cliente->fresh()->version);
     }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureCorreoVerificado;
+use App\Http\Middleware\EnsureDatosCompletos;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsCliente;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => EnsureUserIsActive::class,
             'cliente' => EnsureUserIsCliente::class,
             'correo_verificado' => EnsureCorreoVerificado::class,
+            'datos_completos' => EnsureDatosCompletos::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
