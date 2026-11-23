@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Configuración de la empresa para el administrador.
+ * Configuración de la empresa para el superusuario (ronda B).
  *
  * `logo_url` apunta al endpoint que sirve el logo (el archivo vive en
  * `public/`, fuera del alcance del front); `v` cambia con cada logo nuevo
@@ -31,6 +31,8 @@ class EmpresaResource extends JsonResource
             'email' => $this->email,
             'direccion' => $this->direccion,
             'condiciones' => $this->condiciones,
+            'impuesto_por_defecto' => $this->impuesto_por_defecto,
+            'dias_validez_por_defecto' => $this->dias_validez_por_defecto,
             'logo_url' => $tieneLogo
                 ? '/api/v1/empresa/logo?v='.substr(md5((string) $this->logo_path), 0, 10)
                 : null,

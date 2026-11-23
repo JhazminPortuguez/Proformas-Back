@@ -59,6 +59,15 @@ class AppServiceProvider extends ServiceProvider
                 ], 429, $headers));
         });
 
+        // Ronda B: "Enviar correo de prueba" del superusuario.
+        RateLimiter::for('correo-prueba', function (Request $request) {
+            return Limit::perMinute(3)
+                ->by('correo-prueba|'.($request->user()?->getKey() ?? $request->ip()))
+                ->response(fn (Request $request, array $headers) => response()->json([
+                    'message' => 'Ya enviaste varios correos de prueba seguidos. Espera un minuto antes de enviar otro.',
+                ], 429, $headers));
+        });
+
         // Portal: aceptar o rechazar proformas (P-11 / U-05).
         RateLimiter::for('portal-respuestas', function (Request $request) {
             return Limit::perMinute(10)->by('respuestas|'.($request->user()?->getKey() ?? $request->ip()));

@@ -37,6 +37,13 @@ class UserFactory extends Factory
         ];
     }
 
+    public function superusuario(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'rol' => Rol::Superusuario,
+        ]);
+    }
+
     public function admin(): static
     {
         return $this->state(fn (array $attributes) => [

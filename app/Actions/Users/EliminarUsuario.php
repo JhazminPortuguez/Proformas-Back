@@ -30,6 +30,16 @@ final class EliminarUsuario
             ]);
         }
 
+        if (
+            $usuario->rol === Rol::Superusuario
+            && $usuario->activo
+            && User::query()->where('rol', Rol::Superusuario)->where('activo', true)->count() <= 1
+        ) {
+            throw ValidationException::withMessages([
+                'rol' => 'No se puede eliminar al último superusuario activo.',
+            ]);
+        }
+
         if ($this->tieneHistorial($usuario)) {
             abort(409, 'No se puede eliminar el usuario porque tiene historial asociado.');
         }

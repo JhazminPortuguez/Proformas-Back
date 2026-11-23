@@ -22,9 +22,18 @@ php artisan key:generate
 # 3. Esquema + datos iniciales
 php artisan migrate --seed
 
-# 4. Servidor
+# 4. Superusuario (rol técnico: configuración, administradores y estado del sistema)
+php artisan sistema:crear-superusuario
+
+# 5. Servidor
 php artisan serve --port=8000
 ```
+
+El superusuario solo se crea con ese comando (pide nombre, correo y
+contraseña; con `--password-temporal` genera una y la muestra una vez). No
+participa en la operación: su menú tiene Configuración, Usuarios y Estado del
+sistema. El administrador gestiona operarios y usuarios cliente; los
+administradores los gestiona el superusuario.
 
 Credenciales de ejemplo (solo local):
 

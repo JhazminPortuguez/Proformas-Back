@@ -35,8 +35,16 @@ class UserController extends Controller
 
         $porPagina = min(max($request->integer('per_page', 15), 1), 100);
 
+        // Ronda B: el administrador no ve a los superusuarios y el
+        // superusuario no ve a los usuarios cliente (no son de su área).
+        $visibles = match ($request->user()->rol) {
+            Rol::Superusuario => [Rol::Superusuario, Rol::Admin, Rol::Operario],
+            default => [Rol::Admin, Rol::Operario, Rol::Cliente],
+        };
+
         $usuarios = User::query()
             ->with('cliente')
+            ->whereIn('rol', array_map(fn (Rol $rol) => $rol->value, $visibles))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $termino = Busqueda::patron((string) $request->input('search'));
 
@@ -63,6 +71,13 @@ class UserController extends Controller
 
         $datos = $request->validated();
         $datos['activo'] ??= true;
+        $rol = Rol::from((string) $datos['rol']);
+
+        abort_unless(
+            $request->user()->rol->asigna($rol),
+            403,
+            $this->mensajeRolNoPermitido($request->user()->rol, $rol, 'crear'),
+        );
 
         if (Rol::from((string) $datos['rol']) !== Rol::Cliente) {
             $datos['cliente_id'] = null;
@@ -99,10 +114,17 @@ class UserController extends Controller
         $datos = $request->validated();
         $nuevoRol = isset($datos['rol']) ? Rol::from((string) $datos['rol']) : $user->rol;
         $nuevoActivo = array_key_exists('activo', $datos) ? (bool) $datos['activo'] : $user->activo;
+        $actor = $request->user();
 
-        if ($request->user()->is($user)) {
-            if ($user->rol === Rol::Admin && $nuevoRol !== Rol::Admin) {
-                return $this->rechazar('rol', 'No puedes quitarte tu propio rol de administrador.');
+        abort_if(
+            $nuevoRol !== $user->rol && ! $actor->rol->asigna($nuevoRol),
+            403,
+            $this->mensajeRolNoPermitido($actor->rol, $nuevoRol, 'asignar'),
+        );
+
+        if ($actor->is($user)) {
+            if ($nuevoRol !== $user->rol) {
+                return $this->rechazar('rol', sprintf('No puedes quitarte tu propio rol de %s.', mb_strtolower($user->rol->etiqueta())));
             }
 
             if (! $nuevoActivo) {
@@ -121,6 +143,19 @@ class UserController extends Controller
             return $this->rechazar(
                 $nuevoActivo ? 'rol' : 'activo',
                 'No se puede quitar el rol ni desactivar al último administrador activo.',
+            );
+        }
+
+        // Igual que con el administrador: siempre queda un superusuario activo.
+        if (
+            $user->rol === Rol::Superusuario
+            && $user->activo
+            && ($nuevoRol !== Rol::Superusuario || ! $nuevoActivo)
+            && User::query()->where('rol', Rol::Superusuario)->where('activo', true)->count() <= 1
+        ) {
+            return $this->rechazar(
+                $nuevoActivo ? 'rol' : 'activo',
+                'No se puede quitar el rol ni desactivar al último superusuario activo.',
             );
         }
 
@@ -161,6 +196,24 @@ class UserController extends Controller
         $user->update($datos);
 
         return new UserResource($user->fresh()->load('cliente'));
+    }
+
+    private function mensajeRolNoPermitido(Rol $actor, Rol $rol, string $accion): string
+    {
+        if ($rol === Rol::Superusuario) {
+            return 'El rol de superusuario solo se da con el comando de instalación (php artisan sistema:crear-superusuario).';
+        }
+
+        $roles = array_map(fn (Rol $permitido) => mb_strtolower($permitido->etiqueta()), $actor->rolesQueAsigna());
+
+        return sprintf(
+            'No puedes %s usuarios con el rol %s. Como %s solo puedes %s %s.',
+            $accion,
+            $rol->etiqueta(),
+            mb_strtolower($actor->etiqueta()),
+            $accion === 'crear' ? 'crear' : 'asignar el rol de',
+            implode(' o ', $roles),
+        );
     }
 
     /** Si el correo no sale, el usuario queda creado y puede pedir otro desde el portal. */

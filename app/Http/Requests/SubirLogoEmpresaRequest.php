@@ -7,12 +7,12 @@ namespace App\Http\Requests;
 use App\Enums\Rol;
 use Illuminate\Foundation\Http\FormRequest;
 
-/** Logo de la empresa: PNG o JPG de hasta 1 MB. Solo el administrador. */
+/** Logo de la empresa: PNG o JPG de hasta 1 MB. Solo el superusuario (ronda B). */
 class SubirLogoEmpresaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->rol === Rol::Admin;
+        return $this->user()?->rol === Rol::Superusuario;
     }
 
     public function rules(): array
