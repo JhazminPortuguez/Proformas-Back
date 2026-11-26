@@ -4,8 +4,10 @@ namespace App\Http\Requests;
 
 use App\Enums\Rol;
 use App\Support\EmpresaActual;
+use App\Support\ReglaPassword;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -28,7 +30,7 @@ class UpdateUserRequest extends FormRequest
                 'max:255',
                 Rule::unique('users', 'email')->ignore($this->route('user')),
             ],
-            'password' => ['sometimes', 'nullable', 'string', 'min:8', 'max:255'],
+            'password' => ['sometimes', 'nullable', 'string', 'max:255', Password::min(8)->letters()->numbers()],
             'rol' => ['sometimes', 'required', Rule::enum(Rol::class)],
             'activo' => ['sometimes', 'boolean'],
             'cliente_id' => [
@@ -37,6 +39,16 @@ class UpdateUserRequest extends FormRequest
                 Rule::exists('clientes', 'id')->where('empresa_id', EmpresaActual::id()),
             ],
         ];
+    }
+
+    /**
+     * Ronda C: la misma regla y los mismos mensajes que el registro.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return ReglaPassword::mensajes('password', 'La contraseña');
     }
 
     protected function prepareForValidation(): void
