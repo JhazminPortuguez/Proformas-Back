@@ -92,6 +92,43 @@ class RegistrationTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('email');
     }
 
+    /** RC-01 (ronda C, parte 3): la misma regla que "Cambiar contraseña". */
+    public function test_registro_exige_8_caracteres_con_letras_y_numeros(): void
+    {
+        $casos = [
+            ['corta1', 'La contraseña debe tener al menos 8 caracteres.'],
+            ['12345678', 'La contraseña debe tener al menos una letra.'],
+            ['solotexto', 'La contraseña debe tener al menos un número.'],
+            ['', 'Escribe la contraseña.'],
+        ];
+
+        foreach ($casos as [$password, $mensaje]) {
+            $this->postJson('/api/v1/auth/register', [
+                'name' => 'Clave Débil',
+                'email' => 'debil@x.com',
+                'password' => $password,
+                'password_confirmation' => $password,
+            ])->assertStatus(422)->assertJsonPath('errors.password.0', $mensaje);
+        }
+
+        $this->assertSame(0, User::query()->where('email', 'debil@x.com')->count());
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Clave Buena',
+            'email' => 'buena@x.com',
+            'password' => 'Ñandú2026',
+            'password_confirmation' => 'Ñandú2026',
+        ])->assertCreated();
+    }
+
+    /** RC-02: las cuentas existentes con una contraseña anterior a la regla siguen entrando. */
+    public function test_las_cuentas_existentes_no_se_tocan(): void
+    {
+        User::factory()->create(['email' => 'antigua@x.com', 'password' => 'password', 'rol' => Rol::Operario]);
+
+        $this->postJson('/api/v1/auth/login', ['email' => 'antigua@x.com', 'password' => 'password'])->assertOk();
+    }
+
     public function test_registro_valida_confirmacion_de_password(): void
     {
         $this->postJson('/api/v1/auth/register', [

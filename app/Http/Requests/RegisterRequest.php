@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Cliente;
+use App\Support\ReglaPassword;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -21,9 +22,19 @@ class RegisterRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+            // Ronda C, parte 3: la misma regla que "Cambiar contraseña" y
+            // "Olvidé mi contraseña" (8 caracteres, con letras y números).
+            'password' => ReglaPassword::reglas(),
             'telefono' => ['nullable', 'string', 'max:30'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return ReglaPassword::mensajes('password', 'La contraseña');
     }
 
     /**
