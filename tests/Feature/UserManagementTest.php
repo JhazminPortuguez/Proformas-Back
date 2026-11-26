@@ -72,4 +72,46 @@ class UserManagementTest extends TestCase
             'rol' => 'vendedor',
         ])->assertStatus(422);
     }
+
+    /**
+     * RC-03 (ronda C): la contraseña inicial que escriben el administrador o
+     * el superusuario cumple la misma regla que el registro, con los mismos
+     * mensajes en español. Lo mismo al cambiarla desde la edición.
+     */
+    public function test_rc03_la_contrasena_inicial_exige_letras_y_numeros(): void
+    {
+        $admin = User::factory()->create(['rol' => Rol::Admin]);
+        $superusuario = User::factory()->superusuario()->create();
+        $casos = [
+            ['solotexto', 'La contraseña debe tener al menos un número.'],
+            ['12345678', 'La contraseña debe tener al menos una letra.'],
+            ['abc123', 'La contraseña debe tener al menos 8 caracteres.'],
+        ];
+
+        foreach ([$admin, $superusuario] as $actor) {
+            foreach ($casos as [$password, $mensaje]) {
+                $this->actingAs($actor)->postJson('/api/v1/users', [
+                    'name' => 'Débil',
+                    'email' => 'debil'.$actor->id.'@x.com',
+                    'password' => $password,
+                    'rol' => 'operario',
+                ])->assertUnprocessable()->assertJsonPath('errors.password.0', $mensaje);
+            }
+        }
+
+        $this->assertDatabaseMissing('users', ['name' => 'Débil']);
+
+        $this->actingAs($admin)->postJson('/api/v1/users', [
+            'name' => 'Fuerte',
+            'email' => 'fuerte@x.com',
+            'password' => 'Clave2026x',
+            'rol' => 'operario',
+        ])->assertCreated();
+
+        $operario = User::where('email', 'fuerte@x.com')->firstOrFail();
+
+        $this->actingAs($admin)->putJson("/api/v1/users/{$operario->id}", ['password' => 'solotexto'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.password.0', 'La contraseña debe tener al menos un número.');
+    }
 }

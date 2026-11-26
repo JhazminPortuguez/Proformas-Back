@@ -20,7 +20,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 
 | Estado | Casos |
 |---|---|
-| cubierto | 122 de 124, entre ellos todos los P0 |
+| cubierto | 123 de 125, entre ellos todos los P0 |
 | decidido: no se implementa | 2: O-16, U-07 |
 | pendiente | 0 |
 
@@ -208,12 +208,13 @@ Pedido de la docente. El administrador gestiona el catálogo; cada línea de la 
 | OC-06 | Auth | Contraseña nueva débil o sin confirmar | P0 | cubierto | Mínimo 8, con letras y números (misma regla que el registro). `OlvidePasswordTest::la_contrasena_nueva_exige_letras_y_numeros`; front `olvide-contrasena.test.tsx`, Playwright `olvide-contrasena.spec.ts` |
 | OC-07 | Auth | Pedidos seguidos | P1 | cubierto | 3 cada 10 minutos por correo e IP y 10 por hora por IP; con un correo que no existe se limita igual. `OlvidePasswordTest::los_pedidos_seguidos_se_limitan`; front `olvide-contrasena.test.tsx › "explica el límite de pedidos seguidos (429)"` |
 
-## 17.15 Registro con letras y números (ronda C)
+## 17.15 Registro y contraseña inicial con letras y números (ronda C)
 
 | ID | Módulo | Caso borde | Prioridad | Estado | Test o archivo que lo prueba |
 |---|---|---|---|---|---|
 | RC-01 | Auth / Registro | Registro con una contraseña sin letras o sin números | P0 | cubierto | La misma regla que "Cambiar contraseña" (8, letras y números), con el mensaje en español. `RegistrationTest::registro_exige_8_caracteres_con_letras_y_numeros`; front `registro-contrasena.test.tsx`; Playwright `registro-contrasena.spec.ts` |
 | RC-02 | Auth | Cuentas existentes con una contraseña anterior a la regla | P1 | cubierto | No se tocan: siguen entrando; la regla vale solo al elegir una contraseña. `RegistrationTest::las_cuentas_existentes_no_se_tocan` |
+| RC-03 | Usuarios | Contraseña inicial débil al crear un usuario (administrador o superusuario) | P0 | cubierto | La misma regla y el mismo mensaje que el registro; también al cambiarla desde la edición. `UserManagementTest::rc03_la_contrasena_inicial_exige_letras_y_numeros`; front `usuario-form-drawer.test.tsx › "RC-03: …"` |
 
 ## Decisiones de 17.11
 

@@ -8,16 +8,28 @@ use Illuminate\Validation\Rules\Password;
 
 /**
  * Ronda C: una sola regla de contraseña para el registro del portal,
- * "Cambiar contraseña" y "Olvidé mi contraseña": al menos 8 caracteres, con
+ * "Cambiar contraseña", "Olvidé mi contraseña" y la contraseña inicial que el
+ * administrador o el superusuario escriben al crear un usuario: al menos 8 caracteres, con
  * letras y números. Las cuentas existentes no se tocan; la regla vale al
  * elegir una contraseña.
  */
 final class ReglaPassword
 {
-    /** @return list<mixed> */
-    public static function reglas(): array
+    /**
+     * `$confirmar` exige el campo `*_confirmation`; el alta de usuarios no lo
+     * tiene, porque la contraseña inicial la escribe el administrador.
+     *
+     * @return list<mixed>
+     */
+    public static function reglas(bool $confirmar = true): array
     {
-        return ['required', 'string', 'max:255', 'confirmed', Password::min(8)->letters()->numbers()];
+        return [
+            'required',
+            'string',
+            'max:255',
+            ...($confirmar ? ['confirmed'] : []),
+            Password::min(8)->letters()->numbers(),
+        ];
     }
 
     /**
