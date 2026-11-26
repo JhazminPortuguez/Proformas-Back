@@ -146,6 +146,8 @@ class GoogleController extends Controller
             ]);
             $usuario->rol = Rol::Cliente;
             $usuario->google_id = (string) $google->getId();
+            // Ronda C: sin contraseña propia; "Olvidé mi contraseña" le dice que use Google.
+            $usuario->solo_google = true;
             $usuario->email_verified_at = now();
             $usuario->datos_pendientes = true;
             $usuario->save();

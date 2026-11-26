@@ -92,6 +92,8 @@ class GoogleLoginTest extends TestCase
         $this->assertTrue($usuario->hasVerifiedEmail());
         $this->assertSame('1098765', $usuario->google_id);
         $this->assertFalse($usuario->datos_pendientes);
+        // Ronda C: tiene contraseña propia; "Olvidé mi contraseña" le manda el enlace.
+        $this->assertFalse($usuario->solo_google);
         $this->assertSame(1, User::query()->count());
     }
 
@@ -116,6 +118,8 @@ class GoogleLoginTest extends TestCase
         $this->assertSame('María Nueva', $usuario->name);
         $this->assertTrue($usuario->hasVerifiedEmail());
         $this->assertTrue($usuario->datos_pendientes);
+        // Ronda C: sin contraseña propia; "Olvidé mi contraseña" le dice que use Google.
+        $this->assertTrue($usuario->solo_google);
         $this->assertSame(EstadoCliente::Prospecto, $usuario->cliente->estado);
         $this->assertSame('María Nueva', $usuario->cliente->nombre_razon);
 

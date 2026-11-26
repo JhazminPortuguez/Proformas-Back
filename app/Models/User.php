@@ -62,6 +62,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'rol' => Rol::class,
             'activo' => 'boolean',
             'datos_pendientes' => 'boolean',
+            'solo_google' => 'boolean',
         ];
     }
 
