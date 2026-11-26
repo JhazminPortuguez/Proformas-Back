@@ -33,6 +33,12 @@ trait ValidaItemsProforma
             'items.*.precio_unitario' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'items.*.descripcion' => ['nullable', 'string', 'max:500'],
             'items.*.unidad_medida' => ['nullable', 'string', 'max:30'],
+            // Ronda C: como máximo una promoción por línea.
+            'items.*.promocion_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('promociones', 'id')->where('empresa_id', EmpresaActual::id()),
+            ],
         ];
     }
 
@@ -48,6 +54,7 @@ trait ValidaItemsProforma
             'items.*.cantidad.decimal' => 'La cantidad admite como máximo 3 decimales.',
             'items.*.cantidad.max' => 'La cantidad no puede superar 100000.',
             'items.*.precio_unitario.decimal' => 'El precio unitario admite como máximo 2 decimales.',
+            'items.*.promocion_id.exists' => 'La promoción seleccionada no existe.',
             'descuento.decimal' => 'El descuento admite como máximo 2 decimales.',
             'impuesto_tasa.decimal' => 'El impuesto admite como máximo 2 decimales.',
         ];

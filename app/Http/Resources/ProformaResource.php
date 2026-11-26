@@ -26,6 +26,7 @@ class ProformaResource extends JsonResource
             'impuesto_tasa' => (float) $this->impuesto_tasa,
             'subtotal' => (float) $this->subtotal,
             'descuento' => (float) $this->descuento,
+            'descuento_promocion' => (float) $this->descuento_promocion,
             'impuesto' => (float) $this->impuesto,
             'total' => (float) $this->total,
             'observaciones' => $this->observaciones,

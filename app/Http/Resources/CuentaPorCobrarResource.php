@@ -27,6 +27,8 @@ class CuentaPorCobrarResource extends JsonResource
             'fecha_vencimiento' => $this->fecha_vencimiento?->toDateString(),
             'moneda' => $this->moneda,
             'monto_total' => (float) $this->monto_total,
+            // Ronda C: cuánto se descontó por promociones (ya restado del total).
+            'descuento_promocion' => (float) $this->descuento_promocion,
             'saldo' => (float) $this->saldo,
             'total_pagado' => (float) $this->totalPagado(),
             'estado_cobro' => $this->estado_cobro?->value,

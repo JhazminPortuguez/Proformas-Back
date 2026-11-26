@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Actions\Proformas;
 
 use App\Enums\TipoProformaItem;
+use App\Enums\TipoPromocion;
 use App\Models\Producto;
+use App\Models\Promocion;
 use App\Models\Servicio;
+use App\Support\DescuentoPromocion;
 use App\Support\Dinero;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 final class ConstruirLineasProforma
@@ -19,15 +23,26 @@ final class ConstruirLineasProforma
     private array $serviciosPermitidos = [];
 
     /**
+     * Copias de promociones que la proforma ya tenía guardadas, por id. Una
+     * línea que conserva su promoción conserva también el nombre, tipo y
+     * valor con que se guardó, aunque el administrador la haya editado.
+     *
+     * @var array<int, array{nombre: string, tipo: string, valor: string|null}>
+     */
+    private array $copiasPromocion = [];
+
+    /**
      * @param  array<int, array<string, mixed>>  $items
      * @param  array<int, int|string>  $productosPermitidos  Productos que se aceptan aunque estén inactivos (ya estaban en la proforma).
      * @param  array<int, int|string>  $serviciosPermitidos  Servicios que se aceptan aunque estén inactivos (ya estaban en la proforma).
-     * @return array{lineas: array<int, array<string, mixed>>, subtotal: string}
+     * @param  array<int, array{nombre: string, tipo: string, valor: string|null}>  $copiasPromocion  Promociones ya guardadas en la proforma, por id.
+     * @return array{lineas: array<int, array<string, mixed>>, subtotal: string, descuento_promocion: string}
      */
-    public function ejecutar(array $items, array $productosPermitidos = [], array $serviciosPermitidos = []): array
+    public function ejecutar(array $items, array $productosPermitidos = [], array $serviciosPermitidos = [], array $copiasPromocion = []): array
     {
         $this->productosPermitidos = array_map('intval', $productosPermitidos);
         $this->serviciosPermitidos = array_map('intval', $serviciosPermitidos);
+        $this->copiasPromocion = $copiasPromocion;
 
         $tipos = [];
         $productoIds = [];
@@ -66,15 +81,25 @@ final class ConstruirLineasProforma
             ->get()
             ->keyBy('id');
 
+        $promociones = Promocion::query()
+            ->whereIn('id', array_values(array_filter(array_unique(array_map(
+                fn (array $item): int => (int) ($item['promocion_id'] ?? 0),
+                $items,
+            )))))
+            ->get()
+            ->keyBy('id');
+
         $lineas = [];
 
         foreach ($items as $indice => $item) {
             $tipo = $tipos[$indice];
-            $lineas[] = match ($tipo) {
+            $linea = match ($tipo) {
                 TipoProformaItem::Material => $this->lineaMaterial($item, $productos->get((int) ($item['producto_id'] ?? 0)), $indice),
                 TipoProformaItem::Servicio => $this->lineaServicio($item, $servicios->get((int) ($item['servicio_id'] ?? 0)), $indice),
                 TipoProformaItem::Libre => $this->lineaLibre($item, $indice),
             };
+
+            $lineas[] = $this->aplicarPromocion($linea, $tipo, $item, $promociones, $indice);
         }
 
         $subtotal = Dinero::sumar(...array_column($lineas, 'total_linea'));
@@ -88,6 +113,78 @@ final class ConstruirLineasProforma
         return [
             'lineas' => $lineas,
             'subtotal' => $subtotal,
+            'descuento_promocion' => Dinero::sumar('0', ...array_column($lineas, 'descuento_promocion')),
+        ];
+    }
+
+    /**
+     * Ronda C: aplica la promoción elegida (máximo una por línea). Debe estar
+     * activa y vigente hoy, corresponder al ítem y la línea no puede ser de
+     * cortesía (Bs 0). `total_linea` queda con el descuento ya restado.
+     *
+     * @param  array<string, mixed>  $linea
+     * @param  array<string, mixed>  $item
+     * @param  Collection<int, Promocion>  $promociones
+     * @return array<string, mixed>
+     */
+    private function aplicarPromocion(array $linea, TipoProformaItem $tipo, array $item, Collection $promociones, int $indice): array
+    {
+        $sinPromocion = [
+            'promocion_id' => null,
+            'promocion_nombre' => null,
+            'promocion_tipo' => null,
+            'promocion_valor' => null,
+            'descuento_promocion' => '0.00',
+        ];
+
+        $promocionId = (int) ($item['promocion_id'] ?? 0);
+
+        if ($promocionId === 0) {
+            return [...$linea, ...$sinPromocion];
+        }
+
+        $campo = "items.$indice.promocion_id";
+        $promocion = $promociones->get($promocionId);
+
+        if ($promocion === null) {
+            throw ValidationException::withMessages([$campo => 'La promoción seleccionada no existe.']);
+        }
+
+        if (Dinero::esCero($linea['total_linea'])) {
+            throw ValidationException::withMessages([$campo => 'Una línea de cortesía (Bs 0) no lleva promoción.']);
+        }
+
+        $motivo = $promocion->motivoNoVigente();
+
+        if ($motivo !== null) {
+            throw ValidationException::withMessages([$campo => $motivo.' Quítala de la línea para guardar.']);
+        }
+
+        if (! $promocion->aplicaALinea($tipo, $linea['servicio_id'], $linea['producto_id'])) {
+            throw ValidationException::withMessages([$campo => "La promoción \"{$promocion->nombre}\" no se aplica a este ítem."]);
+        }
+
+        $copia = $this->copiasPromocion[$promocion->id] ?? [
+            'nombre' => $promocion->nombre,
+            'tipo' => $promocion->tipo->value,
+            'valor' => $promocion->valor === null ? null : Dinero::redondear($promocion->valor),
+        ];
+
+        $descuento = DescuentoPromocion::calcular(
+            TipoPromocion::from($copia['tipo']),
+            $copia['valor'],
+            $linea['cantidad'],
+            $linea['precio_unitario'],
+        );
+
+        return [
+            ...$linea,
+            'promocion_id' => $promocion->id,
+            'promocion_nombre' => $copia['nombre'],
+            'promocion_tipo' => $copia['tipo'],
+            'promocion_valor' => $copia['valor'],
+            'descuento_promocion' => $descuento,
+            'total_linea' => Dinero::restar($linea['total_linea'], $descuento),
         ];
     }
 

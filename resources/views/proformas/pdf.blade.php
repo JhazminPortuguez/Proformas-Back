@@ -26,6 +26,7 @@
         .totals td.value { text-align: right; }
         .totals tr.grand td { border-top: 2px solid #0f4c81; font-size: 13px; font-weight: bold; padding-top: 7px; }
         .footer { margin-top: 22px; font-size: 9px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 8px; }
+        .promo { color: #047857; font-size: 10px; margin-top: 2px; }
         .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; background: #e2e8f0; font-size: 10px; }
     </style>
 </head>
@@ -101,6 +102,13 @@
                             <div class="muted">{{ $item->descripcion }}</div>
                         @endif
                         <div class="muted">{{ $item->tipo?->etiqueta() }}</div>
+                        @if ($item->promocion_tipo)
+                            <div class="promo">
+                                Promoción: {{ $item->promocion_nombre }} ({{ \App\Support\DescuentoPromocion::etiqueta($item->promocion_tipo, $item->promocion_valor) }})
+                                · Precio {{ $simbolo }} {{ number_format((float) $item->importeBruto(), 2, ',', '.') }}
+                                · Descuento - {{ $simbolo }} {{ number_format((float) $item->descuento_promocion, 2, ',', '.') }}
+                            </div>
+                        @endif
                     </td>
                     <td>{{ $item->unidad_medida }}</td>
                     <td class="num">{{ rtrim(rtrim(number_format((float) $item->cantidad, 3, ',', '.'), '0'), ',') }}</td>
@@ -116,6 +124,11 @@
             <td class="label">Subtotal</td>
             <td class="value">{{ $simbolo }} {{ number_format((float) $proforma->subtotal, 2, ',', '.') }}</td>
         </tr>
+        @if ((float) $proforma->descuento_promocion > 0)
+            <tr>
+                <td class="label promo" colspan="2">Incluye descuento por promociones de {{ $simbolo }} {{ number_format((float) $proforma->descuento_promocion, 2, ',', '.') }}</td>
+            </tr>
+        @endif
         <tr>
             <td class="label">Descuento</td>
             <td class="value">- {{ $simbolo }} {{ number_format((float) $proforma->descuento, 2, ',', '.') }}</td>

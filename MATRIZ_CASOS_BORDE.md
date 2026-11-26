@@ -20,7 +20,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 
 | Estado | Casos |
 |---|---|
-| cubierto | 101 de 103, entre ellos todos los P0 |
+| cubierto | 113 de 115, entre ellos todos los P0 |
 | decidido: no se implementa | 2: O-16, U-07 |
 | pendiente | 0 |
 
@@ -176,6 +176,25 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 | D-05 | UI | Error 422 con un drawer abierto | P1 | cubierto | Front `use-form-errors.test.tsx › "cuenta campos y enfoca el primero inválido…"`, `pago-dialogs.test.tsx › "muestra el 422 junto al monto y enfoca el campo"`, `stock-dialogs.test.tsx › "muestra el 422 junto al campo y enfoca la cantidad"` |
 | D-06 | UI | 375 px con tabla, tablero o diálogo | P1 | cubierto | Tarjetas en el celular en vez de tablas (`ordenes-table.test.tsx › "muestra el NIT/CI también en las tarjetas del celular"`, `cliente-tabs.test.tsx`); capturas `borde_18` y `borde2_*` en el celular. Clientes, Proformas y Cuentas por cobrar caben sin desplazamiento desde 1280 px aun con nombres largos (`clientes-table.test.tsx`, `proformas-table.test.tsx`, `cobros-table.test.tsx`; Playwright `interno.spec.ts › "el listado de clientes cabe a 1280 px…"`, `› "Cuentas por cobrar y Proformas caben a 1280 px…"`). El dashboard no se desborda a 375 px con un servicio de nombre largo (Playwright `interno.spec.ts`). Capturas `borde2_10`, `borde3_05` y `mejora1_02`–`mejora1_05` |
 | D-07 | UI | Teclado y lectores de pantalla | P1 | cubierto | Front `use-form-errors.test.tsx` (foco), tooltips por foco de teclado (`tooltips-listados.test.tsx`), anuncios con `useAnnouncer`; Playwright `e2e/interno.spec.ts` falla si React Aria avisa de controles sin etiqueta |
+
+## 17.13 Promociones (ronda C)
+
+Pedido de la docente. El administrador gestiona el catálogo; cada línea de la proforma admite como máximo una promoción vigente. La línea guarda una copia del nombre, tipo y valor, y el descuento viaja a la orden y a la cuenta por cobrar.
+
+| ID | Módulo | Caso borde | Prioridad | Estado | Test o archivo que lo prueba |
+|---|---|---|---|---|---|
+| PR-01 | Promociones | Borrar una promoción que ya se usó | P0 | cubierto | Responde 409: no se borra, se desactiva. `PromocionTest::una_promocion_usada_no_se_borra_solo_se_desactiva`; front: la tabla no ofrece "Eliminar" si tiene usos; Playwright `promociones.spec.ts` (409) |
+| PR-02 | Promociones | Aplicar una promoción vencida, inactiva o que todavía no empieza | P0 | cubierto | `PromocionTest::una_promocion_vencida_o_inactiva_no_se_aplica`; front: el selector solo trae las vigentes y una guardada que venció dice "(ya no vigente)" y no deja guardar (`proforma-promocion.test.tsx › "PR-02…"`) |
+| PR-03 | Promociones | Proforma con una promoción que venció antes de enviarse | P0 | cubierto | No se envía; el mensaje pide quitar la promoción. `PromocionTest::proforma_con_promocion_vencida_antes_de_enviarse_no_se_envia` (también si se desactivó) |
+| PR-04 | Promociones | 2x1 con cantidad 1 o 3 | P0 | cubierto | Con 1 no descuenta; con 3 cobra 2; con 4 cobra 2. `PromocionTest::dos_por_uno_con_cantidad_1_no_descuenta_y_con_3_cobra_2`; front `promociones.test.ts › "PR-04…"` |
+| PR-05 | Promociones | Porcentaje fuera de 1 a 100 | P0 | cubierto | `PromocionTest::el_porcentaje_solo_puede_ir_de_1_a_100`; CHECK en PostgreSQL (`PromocionTest::postgres_rechaza_promociones_invalidas`); front `promociones.test.ts › "PR-05…"`, `promocion-form-drawer.test.tsx`, Playwright `promociones.spec.ts` |
+| PR-06 | Promociones | Fecha "hasta" anterior a "desde" | P0 | cubierto | `PromocionTest::la_fecha_hasta_no_puede_ser_anterior_a_desde` (el mismo día vale); front `promociones.test.ts › "PR-06…"`, `promocion-form-drawer.test.tsx` |
+| PR-07 | Promociones | Monto fijo mayor que la línea | P0 | cubierto | La línea queda en Bs 0, nunca en negativo. `PromocionTest::monto_fijo_mayor_que_la_linea_la_deja_en_cero`; front `promociones.test.ts › "PR-07…"` |
+| PR-08 | Promociones | Promoción en una línea de cortesía (Bs 0) | P0 | cubierto | `PromocionTest::una_linea_de_cortesia_no_acepta_promocion`; front: el selector se deshabilita con el motivo (`proforma-promocion.test.tsx › "PR-08…"`) |
+| PR-09 | Promociones | Editar una promoción ya usada | P0 | cubierto | Las proformas guardadas no cambian; al volver a guardar el borrador conserva la copia; una proforma nueva usa los valores nuevos. `PromocionTest::editar_una_promocion_no_cambia_las_proformas_guardadas` |
+| PR-10 | Promociones | Promoción de otro servicio o producto | P1 | cubierto | `PromocionTest::la_promocion_debe_corresponder_al_item`; front: el selector solo muestra las que aplican al ítem y al cambiar el servicio se quita (`promociones.test.ts › "a qué ítem se aplica"`) |
+| PR-11 | Promociones | La promoción después de aceptar: orden y cuenta por cobrar | P0 | cubierto | La orden copia la promoción y la cuenta se genera con el monto ya descontado y guarda el descuento, aunque la promoción cambie después. `PromocionTest::la_orden_y_la_cuenta_por_cobrar_copian_el_descuento`, `::el_portal_el_pdf_y_el_correo_muestran_la_promocion` |
+| PR-12 | Promociones | Cancelar una orden con material en promoción | P1 | cubierto | Decidido: el material no devuelto nunca se cobra por encima del total ya descontado de su línea. `PromocionTest::al_cancelar_no_se_cobra_el_material_por_encima_del_total_con_promocion` |
 
 ## Decisiones de 17.11
 

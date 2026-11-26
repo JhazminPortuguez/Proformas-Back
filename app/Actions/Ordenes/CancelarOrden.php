@@ -100,6 +100,12 @@ final class CancelarOrden
                 $noDevuelta = Dinero::cantidad(bcsub($consumida, $devuelta, Dinero::ESCALA_CANTIDAD));
                 $precio = Dinero::redondear($linea->precio_unitario);
                 $subtotal = Dinero::totalLinea($noDevuelta, $precio);
+
+                // Ronda C: con promoción, nunca se cobra más que el total
+                // (ya descontado) que el cliente aceptó para esa línea.
+                if (Dinero::mayorQue($subtotal, $linea->total_linea)) {
+                    $subtotal = Dinero::redondear($linea->total_linea);
+                }
                 $producto = $productos->get((int) $linea->producto_id);
 
                 if (Dinero::comparar($devuelta, 0) > 0 && $producto instanceof Producto) {

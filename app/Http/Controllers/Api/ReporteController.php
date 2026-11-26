@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Reportes\ReporteCobros;
 use App\Actions\Reportes\ReporteInventario;
 use App\Actions\Reportes\ReporteOrdenes;
+use App\Actions\Reportes\ReportePromociones;
 use App\Actions\Reportes\ReporteServiciosProformas;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReporteRequest;
@@ -66,6 +67,18 @@ class ReporteController extends Controller
 
         return match ($request->formato()) {
             'csv' => $this->csv('cobros', $periodo, $reporte->detalle($request->clienteId())),
+            'pdf', 'xlsx' => $this->exportar($request, $reporte->documento($periodo, $request->clienteId())),
+            default => response()->json($reporte->ejecutar($periodo, $request->clienteId())),
+        };
+    }
+
+    /** Ronda C: usos de cada promoción y cuánto se descontó. */
+    public function promociones(ReporteRequest $request, ReportePromociones $reporte): Response
+    {
+        $periodo = $request->periodo();
+
+        return match ($request->formato()) {
+            'csv' => $this->csv('promociones', $periodo, $reporte->detalle($periodo, $request->clienteId())),
             'pdf', 'xlsx' => $this->exportar($request, $reporte->documento($periodo, $request->clienteId())),
             default => response()->json($reporte->ejecutar($periodo, $request->clienteId())),
         };

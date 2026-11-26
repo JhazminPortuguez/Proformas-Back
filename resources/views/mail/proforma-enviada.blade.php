@@ -23,6 +23,17 @@
                         <td style="padding:8px 12px;color:#64748b;border-top:1px solid #e2e8f0;">Total</td>
                         <td style="padding:8px 12px;text-align:right;font-weight:bold;border-top:1px solid #e2e8f0;">{{ $total }}</td>
                     </tr>
+                    @if ((float) $proforma->descuento_promocion > 0)
+                        <tr>
+                            <td style="padding:8px 12px;color:#64748b;border-top:1px solid #e2e8f0;">Descuento por promociones</td>
+                            <td style="padding:8px 12px;text-align:right;color:#047857;border-top:1px solid #e2e8f0;">- {{ \App\Support\Monedas::simbolo($proforma->moneda ?: 'BOB') }} {{ number_format((float) $proforma->descuento_promocion, 2, ',', '.') }} (ya incluido en el total)</td>
+                        </tr>
+                        @foreach ($proforma->items->whereNotNull('promocion_tipo') as $linea)
+                            <tr>
+                                <td style="padding:4px 12px 8px;color:#64748b;font-size:12px;" colspan="2">{{ $linea->nombre ?: $linea->descripcion }}: {{ $linea->promocion_nombre }} ({{ \App\Support\DescuentoPromocion::etiqueta($linea->promocion_tipo, $linea->promocion_valor) }})</td>
+                            </tr>
+                        @endforeach
+                    @endif
                     @if ($validez)
                         <tr>
                             <td style="padding:8px 12px;color:#64748b;border-top:1px solid #e2e8f0;">Válida hasta</td>

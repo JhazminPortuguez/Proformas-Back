@@ -6,6 +6,7 @@ namespace App\Http\Resources\Portal;
 
 use App\Enums\EstadoProforma;
 use App\Models\Proforma;
+use App\Support\LineaPromocion;
 use App\Support\PeriodoReporte;
 use App\Support\RespuestaPortal;
 use Illuminate\Http\Request;
@@ -50,6 +51,7 @@ class PortalProformaResource extends JsonResource
             $this->mergeWhen($this->relationLoaded('items'), fn () => [
                 'subtotal' => (float) $this->subtotal,
                 'descuento' => (float) $this->descuento,
+                'descuento_promocion' => (float) $this->descuento_promocion,
                 'impuesto_tasa' => (float) $this->impuesto_tasa,
                 'impuesto' => (float) $this->impuesto,
                 'observaciones' => $this->observaciones,
@@ -61,6 +63,7 @@ class PortalProformaResource extends JsonResource
                     'cantidad' => (float) $item->cantidad,
                     'precio_unitario' => (float) $item->precio_unitario,
                     'total_linea' => (float) $item->total_linea,
+                    ...LineaPromocion::campos($item),
                 ])->values()->all(),
             ]),
         ];

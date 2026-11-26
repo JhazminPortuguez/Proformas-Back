@@ -94,14 +94,27 @@ final class ActualizarProforma
             if (array_key_exists('items', $datos)) {
                 // Las líneas que ya tenía la proforma conservan su servicio o
                 // producto aunque se haya desactivado; los nuevos deben estar activos.
+                // Ronda C: una línea que conserva su promoción conserva la
+                // copia (nombre, tipo y valor) con que se guardó.
+                $copias = $actual->items()
+                    ->whereNotNull('promocion_id')
+                    ->get(['promocion_id', 'promocion_nombre', 'promocion_tipo', 'promocion_valor'])
+                    ->mapWithKeys(fn ($linea): array => [(int) $linea->promocion_id => [
+                        'nombre' => (string) $linea->promocion_nombre,
+                        'tipo' => (string) $linea->promocion_tipo,
+                        'valor' => $linea->promocion_valor === null ? null : Dinero::redondear($linea->promocion_valor),
+                    ]])
+                    ->all();
                 $calculado = $this->lineas->ejecutar(
                     $datos['items'],
                     productosPermitidos: $actual->items()->whereNotNull('producto_id')->pluck('producto_id')->all(),
                     serviciosPermitidos: $actual->items()->whereNotNull('servicio_id')->pluck('servicio_id')->all(),
+                    copiasPromocion: $copias,
                 );
                 $actual->items()->delete();
                 $actual->items()->createMany($calculado['lineas']);
                 $subtotal = $calculado['subtotal'];
+                $cambios['descuento_promocion'] = $calculado['descuento_promocion'];
             } else {
                 $subtotal = Dinero::redondear((string) $actual->items()->sum('total_linea'));
             }

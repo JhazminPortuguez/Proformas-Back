@@ -66,6 +66,9 @@ final class GenerarCuentaPorCobrar
                 'moneda' => $proforma->moneda,
                 'monto_total' => $montoTotal,
                 'saldo' => $montoTotal,
+                // Ronda C: el total ya viene con las promociones descontadas;
+                // se guarda cuánto se descontó para mostrarlo en la cuenta.
+                'descuento_promocion' => Dinero::redondear($proforma->descuento_promocion ?? 0),
                 'estado_cobro' => Dinero::esCero($montoTotal)
                     ? EstadoCobro::Pagada
                     : EstadoCobro::Pendiente,
