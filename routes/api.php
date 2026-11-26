@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Portal\PortalProformaController;
 use App\Http\Controllers\Api\Portal\PortalSolicitudController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\ProformaController;
+use App\Http\Controllers\Api\PromocionController;
 use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\ServicioController;
 use App\Http\Controllers\Api\Sistema\EstadoSistemaController;
@@ -83,6 +84,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/servicios', [ReporteController::class, 'serviciosProformas']);
             Route::get('/inventario', [ReporteController::class, 'inventario']);
             Route::get('/cobros', [ReporteController::class, 'cobros']);
+            Route::get('/promociones', [ReporteController::class, 'promociones']);
             Route::get('/clientes', [ReporteController::class, 'clientes']);
         });
 
@@ -96,6 +98,9 @@ Route::prefix('v1')->group(function (): void {
             ->only(['index', 'show', 'store'])
             ->parameters(['ordenes' => 'orden']);
         Route::apiResource('servicios', ServicioController::class);
+        // Ronda C: promociones (las gestiona el administrador).
+        Route::apiResource('promociones', PromocionController::class)
+            ->parameters(['promociones' => 'promocion']);
         Route::apiResource('solicitudes', SolicitudController::class)
             ->parameters(['solicitudes' => 'solicitud']);
         Route::apiResource('users', UserController::class);

@@ -79,6 +79,7 @@ final class CrearProforma
                 'impuesto_tasa' => $totales['impuesto_tasa'],
                 'subtotal' => $totales['subtotal'],
                 'descuento' => $totales['descuento'],
+                'descuento_promocion' => $calculado['descuento_promocion'],
                 'impuesto' => $totales['impuesto'],
                 'total' => $totales['total'],
                 'observaciones' => $datos['observaciones'] ?? null,

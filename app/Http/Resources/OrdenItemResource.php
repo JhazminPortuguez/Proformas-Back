@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\LineaPromocion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -27,6 +28,7 @@ class OrdenItemResource extends JsonResource
             'consumido_at' => $this->consumido_at?->toISOString(),
             'precio_unitario' => (float) $this->precio_unitario,
             'total_linea' => (float) $this->total_linea,
+            ...LineaPromocion::campos($this->resource),
             'producto' => $this->whenLoaded('producto', fn () => new ProductoResource($this->producto)),
             'servicio' => $this->whenLoaded('servicio', fn () => new ServicioResource($this->servicio)),
         ];

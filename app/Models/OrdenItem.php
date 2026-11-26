@@ -29,6 +29,11 @@ class OrdenItem extends Model
         'consumido_at',
         'precio_unitario',
         'total_linea',
+        'promocion_id',
+        'promocion_nombre',
+        'promocion_tipo',
+        'promocion_valor',
+        'descuento_promocion',
     ];
 
     protected function casts(): array
@@ -40,6 +45,8 @@ class OrdenItem extends Model
             'consumido_at' => 'datetime',
             'precio_unitario' => 'decimal:2',
             'total_linea' => 'decimal:2',
+            'promocion_valor' => 'decimal:2',
+            'descuento_promocion' => 'decimal:2',
         ];
     }
 

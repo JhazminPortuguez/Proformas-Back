@@ -13,6 +13,7 @@ use App\Models\PagoCuenta;
 use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\ProformaItem;
+use App\Models\Promocion;
 use App\Models\Servicio;
 use App\Models\SolicitudCotizacion;
 use App\Models\SolicitudItem;
@@ -132,6 +133,7 @@ class PortalTest extends TestCase
             'user' => $this->usuarioB->id,
             'cuenta' => $cuenta->id,
             'pago' => $pago->id,
+            'promocion' => Promocion::factory()->create()->id,
         ];
 
         $revisadas = 0;

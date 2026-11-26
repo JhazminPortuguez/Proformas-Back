@@ -6,6 +6,7 @@ namespace App\Actions\Proformas;
 
 use App\Enums\EstadoProforma;
 use App\Models\Proforma;
+use App\Models\Promocion;
 use App\Models\User;
 use App\Support\FechaBolivia;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,10 @@ final class EnviarProforma
                 ]);
             }
 
+            // Ronda C: si una promoción de sus líneas venció o se desactivó
+            // antes de enviarla, la proforma no se envía.
+            $this->validarPromociones($actual);
+
             $actual->update([
                 'estado' => EstadoProforma::Enviada,
                 'enviada_at' => now(),
@@ -53,5 +58,28 @@ final class EnviarProforma
 
             return $actual->load('cliente', 'items.producto', 'items.servicio');
         });
+    }
+
+    private function validarPromociones(Proforma $proforma): void
+    {
+        $ids = $proforma->items()->whereNotNull('promocion_id')->pluck('promocion_id')->unique();
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $motivos = Promocion::query()
+            ->whereIn('id', $ids)
+            ->orderBy('nombre')
+            ->get()
+            ->map(fn (Promocion $promocion): ?string => $promocion->motivoNoVigente())
+            ->filter()
+            ->values();
+
+        if ($motivos->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'promocion' => $motivos->implode(' ').' Edita la proforma y quita la promoción antes de enviarla.',
+            ]);
+        }
     }
 }

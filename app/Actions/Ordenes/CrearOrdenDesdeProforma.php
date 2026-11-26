@@ -131,6 +131,12 @@ final class CrearOrdenDesdeProforma
                 'cantidad' => $item->cantidad,
                 'precio_unitario' => $item->precio_unitario,
                 'total_linea' => $item->total_linea,
+                // Ronda C: la promoción viaja con la venta.
+                'promocion_id' => $item->promocion_id,
+                'promocion_nombre' => $item->promocion_nombre,
+                'promocion_tipo' => $item->promocion_tipo,
+                'promocion_valor' => $item->promocion_valor,
+                'descuento_promocion' => $item->descuento_promocion ?? 0,
             ];
         })->all();
     }
