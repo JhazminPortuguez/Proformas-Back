@@ -64,6 +64,24 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by('password|'.($request->user()?->getKey() ?? $request->ip()));
         });
 
+        // Ronda C: "Olvidé mi contraseña". 3 pedidos cada 10 minutos por
+        // correo e IP y 10 por hora por IP; el mensaje no dice si existe.
+        RateLimiter::for('olvide-password', function (Request $request) {
+            $email = Str::lower(trim((string) $request->input('email')));
+            $respuesta = fn (Request $request, array $headers) => response()->json([
+                'message' => 'Hiciste varios pedidos seguidos. Espera unos minutos y revisa tu bandeja (también la carpeta de spam) antes de pedir otro enlace.',
+            ], 429, $headers);
+
+            return [
+                Limit::perMinutes(10, 3)->by('olvide|'.$email.'|'.$request->ip())->response($respuesta),
+                Limit::perHour(10)->by('olvide-ip|'.$request->ip())->response($respuesta),
+            ];
+        });
+
+        RateLimiter::for('restablecer-password', function (Request $request) {
+            return Limit::perMinute(5)->by('restablecer|'.$request->ip());
+        });
+
         // Ronda B: "Enviar correo de prueba" del superusuario.
         RateLimiter::for('correo-prueba', function (Request $request) {
             return Limit::perMinute(3)

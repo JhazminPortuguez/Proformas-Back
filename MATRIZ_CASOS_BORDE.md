@@ -20,7 +20,7 @@ Anexo de la sección 17 ("Casos borde de los flujos principales"). Para cada cas
 
 | Estado | Casos |
 |---|---|
-| cubierto | 113 de 115, entre ellos todos los P0 |
+| cubierto | 120 de 122, entre ellos todos los P0 |
 | decidido: no se implementa | 2: O-16, U-07 |
 | pendiente | 0 |
 
@@ -195,6 +195,18 @@ Pedido de la docente. El administrador gestiona el catálogo; cada línea de la 
 | PR-10 | Promociones | Promoción de otro servicio o producto | P1 | cubierto | `PromocionTest::la_promocion_debe_corresponder_al_item`; front: el selector solo muestra las que aplican al ítem y al cambiar el servicio se quita (`promociones.test.ts › "a qué ítem se aplica"`) |
 | PR-11 | Promociones | La promoción después de aceptar: orden y cuenta por cobrar | P0 | cubierto | La orden copia la promoción y la cuenta se genera con el monto ya descontado y guarda el descuento, aunque la promoción cambie después. `PromocionTest::la_orden_y_la_cuenta_por_cobrar_copian_el_descuento`, `::el_portal_el_pdf_y_el_correo_muestran_la_promocion` |
 | PR-12 | Promociones | Cancelar una orden con material en promoción | P1 | cubierto | Decidido: el material no devuelto nunca se cobra por encima del total ya descontado de su línea. `PromocionTest::al_cancelar_no_se_cobra_el_material_por_encima_del_total_con_promocion` |
+
+## 17.14 Olvidé mi contraseña (ronda C)
+
+| ID | Módulo | Caso borde | Prioridad | Estado | Test o archivo que lo prueba |
+|---|---|---|---|---|---|
+| OC-01 | Auth | Pedir el enlace con un correo que no existe | P0 | cubierto | El mensaje es el mismo exista o no (no revela quién está registrado); una cuenta inactiva tampoco recibe enlace. `OlvidePasswordTest::el_mensaje_es_el_mismo_exista_o_no_el_correo`, `::un_usuario_inactivo_no_recibe_enlace_y_el_mensaje_no_cambia`; Playwright `olvide-contrasena.spec.ts › "el mensaje es el mismo con un correo que no existe"` |
+| OC-02 | Auth | Cuenta que solo entra con Google | P1 | cubierto | Recibe un correo que le dice que use "Continuar con Google", no un enlace. `OlvidePasswordTest::la_cuenta_que_solo_entra_con_google_recibe_el_aviso_de_usar_google`, `GoogleLoginTest` (marca `solo_google`) |
+| OC-03 | Auth | Usar dos veces el mismo enlace | P0 | cubierto | Sirve una sola vez. `OlvidePasswordTest::el_enlace_cambia_la_contrasena_una_sola_vez_y_cierra_las_sesiones`; front `olvide-contrasena.test.tsx › "un enlace usado o vencido ofrece pedir otro"`; Playwright `olvide-contrasena.spec.ts` |
+| OC-04 | Auth | Sesiones abiertas al cambiar la contraseña | P1 | cubierto | Se cierran todas las sesiones de la cuenta. `OlvidePasswordTest::el_enlace_cambia_la_contrasena_una_sola_vez_y_cierra_las_sesiones` |
+| OC-05 | Auth | Enlace vencido (más de 60 minutos) o inventado | P0 | cubierto | `OlvidePasswordTest::el_enlace_vence_a_los_60_minutos`, `::un_token_inventado_o_de_otro_correo_no_sirve` |
+| OC-06 | Auth | Contraseña nueva débil o sin confirmar | P0 | cubierto | Mínimo 8, con letras y números (misma regla que el registro). `OlvidePasswordTest::la_contrasena_nueva_exige_letras_y_numeros`; front `olvide-contrasena.test.tsx`, Playwright `olvide-contrasena.spec.ts` |
+| OC-07 | Auth | Pedidos seguidos | P1 | cubierto | 3 cada 10 minutos por correo e IP y 10 por hora por IP; con un correo que no existe se limita igual. `OlvidePasswordTest::los_pedidos_seguidos_se_limitan`; front `olvide-contrasena.test.tsx › "explica el límite de pedidos seguidos (429)"` |
 
 ## Decisiones de 17.11
 

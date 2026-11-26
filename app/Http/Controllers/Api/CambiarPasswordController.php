@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\ReglaPassword;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -24,15 +24,11 @@ class CambiarPasswordController extends Controller
     {
         $datos = $request->validate([
             'password_actual' => ['required', 'string'],
-            'password' => ['required', 'string', 'max:255', 'confirmed', Password::min(8)->letters()->numbers(), 'different:password_actual'],
+            'password' => [...ReglaPassword::reglas(), 'different:password_actual'],
         ], [
             'password_actual.required' => 'Escribe tu contraseña actual.',
-            'password.required' => 'Escribe la contraseña nueva.',
-            'password.confirmed' => 'La confirmación no coincide con la contraseña nueva.',
+            ...ReglaPassword::mensajes('password', 'La contraseña nueva'),
             'password.different' => 'La contraseña nueva debe ser distinta de la actual.',
-            'password.min' => 'La contraseña nueva debe tener al menos 8 caracteres.',
-            'password.letters' => 'La contraseña nueva debe tener al menos una letra.',
-            'password.numbers' => 'La contraseña nueva debe tener al menos un número.',
         ]);
 
         $usuario = $request->user();

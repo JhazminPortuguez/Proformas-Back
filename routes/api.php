@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EmpresaController;
 use App\Http\Controllers\Api\GoogleController;
 use App\Http\Controllers\Api\InventarioController;
+use App\Http\Controllers\Api\OlvidePasswordController;
 use App\Http\Controllers\Api\OrdenServicioController;
 use App\Http\Controllers\Api\PagoCuentaController;
 use App\Http\Controllers\Api\Portal\PortalCatalogoController;
@@ -34,6 +35,13 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('/login', [AuthController::class, 'login'])
             ->middleware(['web', 'throttle:login']);
+
+        // Ronda C, parte 2: "Olvidé mi contraseña" (sin sesión). La respuesta
+        // del pedido es la misma exista o no el correo.
+        Route::post('/olvide-password', [OlvidePasswordController::class, 'solicitar'])
+            ->middleware(['web', 'throttle:olvide-password']);
+        Route::post('/restablecer-password', [OlvidePasswordController::class, 'restablecer'])
+            ->middleware(['web', 'throttle:restablecer-password']);
 
         // Ronda B, parte 2: "Continuar con Google". El estado dice si el
         // botón se muestra; redirect y callback usan la sesión (state).
