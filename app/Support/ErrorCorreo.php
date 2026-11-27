@@ -25,7 +25,7 @@ final class ErrorCorreo
                 || str_contains($texto, 'unable to connect') => 'No se pudo conectar con el servidor de correo. Revisa MAIL_HOST y MAIL_PORT (Gmail: smtp.gmail.com y 587) y que la red permita la conexión.',
             str_contains($texto, 'ssl') || str_contains($texto, 'tls') || str_contains($texto, 'certificate') => 'Falló la conexión segura con el servidor de correo. Con el puerto 587 usa MAIL_SCHEME=smtp (STARTTLS) y con el 465, MAIL_SCHEME=smtps.',
             str_contains($texto, 'sender') || str_contains($texto, 'from') => 'El servidor no aceptó la dirección del remitente. MAIL_FROM_ADDRESS debe ser la misma cuenta de MAIL_USERNAME (o un alias autorizado).',
-            default => 'El servidor de correo no aceptó el envío. El detalle técnico quedó en storage/logs/laravel.log.',
+            default => 'El servidor de correo no aceptó el envío. El detalle técnico quedó en el log del día, en storage/logs.',
         };
     }
 
